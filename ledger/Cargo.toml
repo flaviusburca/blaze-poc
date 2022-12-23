@@ -1,0 +1,8 @@
+[package]
+name = "mundis-ledger"
+version.workspace = true
+edition = "2021"
+
+[dependencies]
+rocksdb = "0.19.0"
+tokio = { version = "1.23", features = ["sync", "macros", "rt"] }

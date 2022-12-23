@@ -1,0 +1,19 @@
+[package]
+name = "mundis-validator"
+version.workspace = true
+edition = "2021"
+
+[dependencies]
+anyhow = { version = "1.0.64", features = ["backtrace"] }
+clap = { version = "3.2.23", features = ["derive"] }
+colored = "2.0.0"
+log = "0.4.14"
+multiaddr.workspace = true
+serde = { version = "1.0.144", features = ["derive", "rc"] }
+tokio = { version = "1.23", features = ["rt"] }
+
+mundis-ledger = { path="../ledger" }
+mundis-logger = { path="../logger" }
+mundis-model = { path="../model" }
+mundis-config = { path="../config" }
+mundis-core = { path="../core" }

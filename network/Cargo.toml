@@ -1,0 +1,15 @@
+[package]
+name = "mundis-network"
+version.workspace = true
+edition = "2021"
+
+
+[dependencies]
+async-trait = "0.1.60"
+tokio = { version = "1.5.0", features = ["rt", "net", "sync", "macros", "time"] }
+tokio-util = { version = "0.6.6", features = ["codec"] }
+thiserror = "1.0.24"
+bytes = "1.0.1"
+rand = { version = "0.7.3", features = ["small_rng"] }
+log = "0.4.14"
+futures = "0.3.14"

@@ -1,0 +1,10 @@
+[package]
+name = "mundis-logger"
+version.workspace = true
+edition = "2021"
+
+[dependencies]
+env_logger = "0.9.0"
+lazy_static = "1.4.0"
+log = "0.4.14"
+
