@@ -15,7 +15,7 @@ use crate::primary::PrimaryWorkerMessage;
 use crate::worker::batch_maker::{Batch, BatchMaker, Transaction};
 use crate::worker::helper::{ExecutorHelper, Helper};
 use crate::worker::primary_connector::PrimaryConnector;
-use crate::worker::processor::{Processor, SerializedBatchMessage};
+use crate::worker::processor::{WorkerProcessor, SerializedBatchMessage};
 use crate::worker::quorum_waiter::{QuorumWaiter, QuorumWaiterMessage};
 use crate::worker::synchronizer::Synchronizer;
 
@@ -161,7 +161,7 @@ impl Worker {
 
         // The `Processor` hashes and stores the batch. It then forwards the batch's digest to the `PrimaryConnector`
         // that will send it to our primary machine.
-        Processor::spawn(
+        WorkerProcessor::spawn(
             self.id,
             self.store.clone(),
             /* rx_batch */ rx_processor,
@@ -215,7 +215,7 @@ impl Worker {
 
         // This `Processor` hashes and stores the batches we receive from the other workers. It then forwards the
         // batch's digest to the `PrimaryConnector` that will send it to our primary.
-        Processor::spawn(
+        WorkerProcessor::spawn(
             self.id,
             self.store.clone(),
             /* rx_batch */ rx_processor,

@@ -9,9 +9,9 @@ use crate::worker::SerializedBatchDigestMessage;
 pub type SerializedBatchMessage = Vec<u8>;
 
 /// Hashes and stores batches, it then outputs the batch's digest.
-pub struct Processor;
+pub struct WorkerProcessor;
 
-impl Processor {
+impl WorkerProcessor {
     pub fn spawn(
         // Our worker's id.
         id: WorkerId,
