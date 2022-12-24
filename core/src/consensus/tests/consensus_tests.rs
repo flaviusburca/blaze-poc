@@ -1,6 +1,8 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use super::*;
 use std::collections::{BTreeSet, VecDeque};
+use rand::rngs::StdRng;
+use rand::SeedableRng;
 use tokio::sync::mpsc::channel;
 use mundis_model::certificate::Header;
 use mundis_model::committee::{Authority, ExecutorAddresses, PrimaryAddresses};
@@ -8,7 +10,8 @@ use mundis_model::keypair::Keypair;
 use mundis_model::signature::Signer;
 
 pub fn keys() -> Vec<Keypair> {
-    (0..4).map(|_| Keypair::new()).collect()
+    let mut rng = StdRng::from_seed([0; 32]);
+    (0..4).map(|_| Keypair::generate(&mut rng)).collect()
 }
 
 pub fn mock_committee() -> Committee {
@@ -82,6 +85,8 @@ fn make_certificates(
 // the leader of round 2.
 #[tokio::test]
 async fn commit_one() {
+    mundis_logger::setup_with_default("info");
+
     // Make certificates for rounds 1 and 2.
     let keys: Vec<_> = keys().into_iter().map(|x| x.pubkey()).collect();
     let genesis = Certificate::genesis(&mock_committee())
@@ -112,6 +117,7 @@ async fn commit_one() {
     // Feed all certificates to the consensus. Only the last certificate should trigger
     // commits, so the task should not block.
     while let Some(certificate) = certificates.pop_front() {
+        info!("Sending certificate: {:?}", certificate);
         tx_waiter.send(certificate).await.unwrap();
     }
 

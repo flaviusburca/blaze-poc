@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::fmt;
 use serde::{Serialize, Deserialize};
 use crate::certificate::{DagError, DagResult, Header};
@@ -7,7 +6,7 @@ use crate::hash::{Hash, Hashable, Hasher};
 use crate::keypair::Keypair;
 use crate::pubkey::Pubkey;
 use crate::Round;
-use crate::signature::{Signable, Signature, Signer};
+use crate::signature::{Signature, Signer};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Vote {
@@ -23,15 +22,22 @@ impl Vote {
         header: &Header,
         author: &Keypair,
     ) -> Self {
-        let mut vote = Self {
+        let vote = Self {
             id: header.id.clone(),
             round: header.round,
             origin: header.author,
             author: author.pubkey(),
             signature: Signature::default(),
         };
-        vote.sign(author);
-        vote
+
+        let id = vote.hash();
+        let signature = author.sign_message(id.as_ref());
+
+        Vote {
+            id,
+            signature,
+            ..vote
+        }
     }
 
     pub fn verify(&self, committee: &Committee) -> DagResult<()> {
@@ -56,24 +62,6 @@ impl Hashable for Vote {
         hasher.hashr(self.round.to_le_bytes());
         hasher.hashr(self.origin);
         hasher.result()
-    }
-}
-
-impl Signable for Vote {
-    fn pubkey(&self) -> Pubkey {
-        self.author
-    }
-
-    fn signable_data(&self) -> Cow<[u8]> {
-        Cow::Owned(self.id.as_ref().into())
-    }
-
-    fn get_signature(&self) -> Signature {
-        self.signature
-    }
-
-    fn set_signature(&mut self, signature: Signature) {
-        self.signature = signature;
     }
 }
 

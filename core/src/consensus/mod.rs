@@ -1,6 +1,8 @@
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
+use std::fmt::{Debug, Formatter};
 use log::{debug, info, log_enabled, warn};
+use itertools::Itertools;
 use tokio::sync::mpsc::{Receiver, Sender};
 use mundis_model::certificate::Certificate;
 use mundis_model::committee::Committee;
@@ -56,6 +58,36 @@ impl State {
             });
         }
     }
+
+    pub fn dump(&self, prefix: Option<String>) {
+        let mut msg = format!(
+            "{}DAG: \n\
+            ------------------",
+            prefix.unwrap_or("".to_string())
+        );
+        for round in self.dag.keys().sorted() {
+            msg += &*format!("\n\tRound: {}", round);
+            let entry = self.dag.get(round);
+            if entry.is_some() {
+                for pubkey in entry.unwrap().keys().into_iter() {
+                    let pair = entry.unwrap().get(pubkey);
+                    if pair.is_some() {
+                        let (digest, _certificate) = pair.unwrap();
+                        let votes = _certificate.votes.iter()
+                            .map(|c| c.0)
+                            .join(", ");
+                        msg += &*format!("\n\t Author={}, Certificate_Digest={}, Votes={}", pubkey, digest, votes);
+                    } else {
+                        msg += &*format!("\n\t Empty");
+                    }
+                }
+            } else {
+                msg += "\n\tEmpty";
+            }
+        }
+
+        debug!("{}", msg);
+    }
 }
 
 pub struct Consensus {
@@ -101,10 +133,11 @@ impl Consensus {
     async fn run(&mut self) {
         // The consensus state (everything else is immutable).
         let mut state = State::new(self.genesis.clone());
+        state.dump(Some("\nGENESIS ".to_string()));
 
         // Listen to incoming certificates.
         while let Some(certificate) = self.rx_primary.recv().await {
-            debug!("Processing {:?}", certificate);
+            // info!("Processing {:?}", certificate);
             let round = certificate.round();
 
             // Add the new certificate to the local storage.
@@ -113,6 +146,8 @@ impl Consensus {
                 .entry(round)
                 .or_insert_with(HashMap::new)
                 .insert(certificate.origin(), (certificate.hash(), certificate));
+
+            state.dump(Some("\n".to_string()));
 
             // Try to order the dag to commit. Start from the previous round and check if it is a leader round.
             let r = round - 1;
@@ -127,6 +162,7 @@ impl Consensus {
             if leader_round <= state.last_committed_round {
                 continue;
             }
+
             let (leader_digest, leader) = match self.leader(leader_round, &state.dag) {
                 Some(x) => x,
                 None => continue,
@@ -194,12 +230,13 @@ impl Consensus {
         // At this stage, we are guaranteed to have 2f+1 certificates from round r (which is enough to
         // compute the coin). We currently just use round-robin.
         #[cfg(test)]
-            let seed = 0;
+        let seed = 0;
         #[cfg(not(test))]
-            let seed = round;
+        let seed = round;
 
         // Elect the leader.
         let leader = self.committee.leader(seed as usize);
+        info!("Leader for round {} is {}", round, leader);
 
         // Return its certificate and the certificate's digest.
         dag.get(&round).map(|x| x.get(&leader)).flatten()

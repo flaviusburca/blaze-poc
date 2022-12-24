@@ -4,7 +4,6 @@ use futures::sink::SinkExt as _;
 use futures::stream::StreamExt as _;
 use rand::SeedableRng as _;
 use std::net::SocketAddr;
-use log::debug;
 use rand::rngs::StdRng;
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
@@ -13,7 +12,7 @@ use mundis_model::certificate::{Certificate, Header};
 use mundis_model::committee::{Authority, Committee, ExecutorAddresses, PrimaryAddresses, WorkerAddresses};
 use mundis_model::hash::Hashable;
 use mundis_model::keypair::Keypair;
-use mundis_model::signature::{Signable, Signature, Signer};
+use mundis_model::signature::{Signature, Signer};
 use mundis_model::vote::Vote;
 
 pub fn keys() -> Vec<Keypair> {
@@ -87,7 +86,7 @@ pub fn committee_with_base_port(base_port: u16) -> Committee {
 
 pub fn header() -> Header {
     let keypair = keys().pop().unwrap();
-    let mut header = Header {
+    let header = Header {
         author: keypair.pubkey(),
         round: 1,
         epoch: 0,
@@ -98,16 +97,21 @@ pub fn header() -> Header {
         ..Header::default()
     };
 
-    header.id = header.hash();
-    header.sign(&keypair);
-    header
+    let id = header.hash();
+    let signature = keypair.sign_message(id.as_ref());
+
+    Header {
+        id,
+        signature,
+        ..header
+    }
 }
 
 pub fn headers() -> Vec<Header> {
     keys()
         .into_iter()
         .map(|keypair| {
-            let mut header = Header {
+            let header = Header {
                 author: keypair.pubkey(),
                 round: 1,
                 parents: Certificate::genesis(&committee())
@@ -116,9 +120,14 @@ pub fn headers() -> Vec<Header> {
                     .collect(),
                 ..Header::default()
             };
-            header.id = header.hash();
-            header.sign(&keypair);
-            header
+
+            let digest = header.hash();
+
+            Header {
+                id: digest,
+                signature: keypair.sign_message(digest.as_ref()),
+                ..header
+            }
         })
         .collect()
 }
@@ -127,16 +136,18 @@ pub fn votes(header: &Header) -> Vec<Vote> {
     keys()
         .into_iter()
         .map(|keypair| {
-            let mut vote = Vote {
+            let vote = Vote {
                 id: header.id.clone(),
                 round: header.round,
                 origin: header.author,
                 author: keypair.pubkey(),
                 signature: Signature::default(),
             };
-            vote.sign(&keypair);
-            debug!("Created vote with signature: {} from pubkey: {}", vote.signature, keypair.pubkey());
-            vote
+            let signature = keypair.sign_message(vote.hash().as_ref());
+            Vote {
+                signature,
+                ..vote
+            }
         })
         .collect()
 }

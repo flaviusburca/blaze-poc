@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::fmt;
 use std::time::SystemTime;
@@ -12,7 +11,7 @@ use crate::committee::Committee;
 use crate::hash::{Hash, Hashable, Hasher};
 use crate::keypair::Keypair;
 use crate::pubkey::Pubkey;
-use crate::signature::{Signable, Signature, Signer};
+use crate::signature::{Signature, Signer};
 
 pub type DagResult<T> = Result<T, DagError>;
 
@@ -177,7 +176,7 @@ impl Header {
             Err(_) => panic!("SystemTime before UNIX EPOCH!"),
         };
 
-        let mut header = Self {
+        let header = Self {
             author: author.pubkey(),
             round,
             epoch,
@@ -188,9 +187,14 @@ impl Header {
             signature: Signature::default(),
         };
 
-        header.id = header.hash();
-        header.sign(&author);
-        header
+        let id = header.hash();
+        let signature = author.sign_message(id.as_ref());
+
+        Header {
+            id,
+            signature,
+            ..header
+        }
     }
 
     pub fn verify(&self, committee: &Committee) -> DagResult<()> {
@@ -239,24 +243,6 @@ impl Hashable for Header {
             hasher.hash(&x.to_bytes());
         }
         hasher.result()
-    }
-}
-
-impl Signable for Header {
-    fn pubkey(&self) -> Pubkey {
-        self.author
-    }
-
-    fn signable_data(&self) -> Cow<[u8]> {
-        Cow::Owned(self.id.as_ref().into())
-    }
-
-    fn get_signature(&self) -> Signature {
-        self.signature
-    }
-
-    fn set_signature(&mut self, signature: Signature) {
-        self.signature = signature;
     }
 }
 

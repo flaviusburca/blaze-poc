@@ -1,8 +1,5 @@
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use rand::seq::SliceRandom;
 use {
     crate::{
         base_types::Epoch,
@@ -100,19 +97,9 @@ impl Committee {
 
     /// Returns a leader node as a weighted choice seeded by the provided integer
     pub fn leader(&self, seed: usize) -> Pubkey {
-        let mut seed_bytes = [0u8; 32];
-        seed_bytes[32 - 8..].copy_from_slice(&seed.to_le_bytes());
-        let mut rng = StdRng::from_seed(seed_bytes);
-        let choices = self
-            .authorities
-            .iter()
-            .map(|(name, authority)| (name, authority.stake as f32))
-            .collect::<Vec<_>>();
-        choices
-            .choose_weighted(&mut rng, |item| item.1)
-            .expect("Weighted choice error: stake values incorrect!")
-            .0
-            .clone()
+        let mut keys: Vec<_> = self.authorities.keys().cloned().collect();
+        keys.sort();
+        keys[seed % self.size()]
     }
 
     /// Returns the primary address of the target primary.
