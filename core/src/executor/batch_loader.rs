@@ -13,7 +13,7 @@ use mundis_model::hash::{Hash, Hasher};
 use mundis_model::pubkey::Pubkey;
 use mundis_model::WorkerId;
 use mundis_network::simple_sender::SimpleSender;
-use crate::executor::core::CoreMessage;
+use crate::executor::executor_core::ExecutorCoreMessage;
 use crate::worker::WorkerMessage;
 
 /// The resolution of the timer that checks whether we received replies to our batch requests,
@@ -36,7 +36,7 @@ pub struct BatchLoader {
     /// Input channel to receive batches from workers.
     rx_worker: Receiver<SerializedBatchMessage>,
     /// Output channel to notify the core that a certificate is ready for execution.
-    tx_core: Sender<CoreMessage>,
+    tx_core: Sender<ExecutorCoreMessage>,
     /// The delay to wait before re-trying sync requests.
     sync_retry_delay: u64,
     /// A simply network sender to request batches from workers.
@@ -53,7 +53,7 @@ impl BatchLoader {
         store: Store,
         rx_consensus: Receiver<Certificate>,
         rx_worker: Receiver<SerializedBatchMessage>,
-        tx_core: Sender<CoreMessage>,
+        tx_core: Sender<ExecutorCoreMessage>,
         sync_retry_delay: u64,
     ) {
         tokio::spawn(async move {
@@ -180,11 +180,11 @@ impl BatchLoader {
         digest: Hash,
         mut store: Store,
         deliver: Certificate,
-    ) -> Result<CoreMessage, StoreError> {
+    ) -> Result<ExecutorCoreMessage, StoreError> {
         store
             .notify_read(digest.to_vec())
             .await
-            .map(|batch| CoreMessage {
+            .map(|batch| ExecutorCoreMessage {
                 batch,
                 digest,
                 certificate: deliver,

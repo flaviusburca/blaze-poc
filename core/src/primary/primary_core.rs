@@ -19,7 +19,7 @@ use crate::primary::aggregators::{CertificatesAggregator, VotesAggregator};
 use crate::primary::PrimaryMessage;
 use crate::primary::synchronizer::Synchronizer;
 
-pub struct Core {
+pub struct PrimaryCore {
     /// The public key of this primary.
     authority: Keypair,
     /// The committee information.
@@ -65,7 +65,7 @@ pub struct Core {
 }
 
 
-impl Core {
+impl PrimaryCore {
     pub fn spawn(
         authority: Keypair,
         committee: Committee,

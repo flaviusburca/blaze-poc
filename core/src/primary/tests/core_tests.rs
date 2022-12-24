@@ -49,7 +49,7 @@ async fn process_header() {
     );
 
     // Spawn the core.
-    Core::spawn(
+    PrimaryCore::spawn(
         keypair.clone(),
         committee,
         store.clone(),
@@ -116,7 +116,7 @@ async fn process_header_missing_parent() {
     );
 
     // Spawn the core.
-    Core::spawn(
+    PrimaryCore::spawn(
         keypair.clone(),
         committee(),
         store.clone(),
@@ -174,7 +174,7 @@ async fn process_header_missing_payload() {
     );
 
     // Spawn the core.
-    Core::spawn(
+    PrimaryCore::spawn(
         keypair.clone(),
         committee(),
         store.clone(),
@@ -234,7 +234,7 @@ async fn process_votes() {
     );
 
     // Spawn the core.
-    Core::spawn(
+    PrimaryCore::spawn(
         keypair.clone(),
         committee.clone(),
         store.clone(),
@@ -305,7 +305,7 @@ async fn process_certificates() {
     );
 
     // Spawn the core.
-    Core::spawn(
+    PrimaryCore::spawn(
         keypair.clone(),
         committee(),
         store.clone(),

@@ -9,7 +9,7 @@ use crate::executor::batch_loader::SerializedBatchMessage;
 use crate::worker::WorkerMessage;
 
 #[derive(Debug)]
-pub struct CoreMessage {
+pub struct ExecutorCoreMessage {
     /// The serialized batch message.
     pub batch: SerializedBatchMessage,
     /// The digest of the batch.
@@ -19,13 +19,13 @@ pub struct CoreMessage {
 }
 
 /// Executes batches of transactions.
-pub struct Core {
+pub struct ExecutorCore {
     /// Input channel to receive (serialized) batches to execute.
-    rx_batch_loader: Receiver<CoreMessage>,
+    rx_batch_loader: Receiver<ExecutorCoreMessage>,
 }
 
-impl Core {
-    pub fn spawn(rx_batch_loader: Receiver<CoreMessage>) {
+impl ExecutorCore {
+    pub fn spawn(rx_batch_loader: Receiver<ExecutorCoreMessage>) {
         tokio::spawn(async move {
             Self { rx_batch_loader }.run().await;
         });
@@ -34,7 +34,7 @@ impl Core {
     /// Main loop receiving batches to execute.
     async fn run(&mut self) {
         while let Some(core_message) = self.rx_batch_loader.recv().await {
-            let CoreMessage {
+            let ExecutorCoreMessage {
                 batch,
                 digest,
                 certificate,
@@ -46,13 +46,7 @@ impl Core {
 
                     // Deserialize each transaction.
                     for serialized_tx in batch {
-                        #[cfg(feature = "benchmark")]
-                            // The first 9 bytes of the serialized transaction are used as identification
-                            // tags and are not part of the actual transaction.
-                            let bytes = &serialized_tx[9..];
-                        #[cfg(not(feature = "benchmark"))]
-                            let bytes = &serialized_tx;
-
+                        let bytes = &serialized_tx;
                         let transaction: Transaction = match bincode::deserialize(bytes) {
                             Ok(x) => x,
                             Err(e) => {

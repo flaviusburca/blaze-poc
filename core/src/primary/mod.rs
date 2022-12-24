@@ -17,7 +17,7 @@ use mundis_model::signature::Signer;
 use mundis_model::vote::Vote;
 use mundis_network::receiver::{MessageHandler, NetworkReceiver, Writer};
 use crate::primary::certificate_waiter::CertificateWaiter;
-use crate::primary::core::Core;
+use crate::primary::primary_core::PrimaryCore;
 use crate::primary::garbage_collector::GarbageCollector;
 use crate::primary::header_waiter::{HeaderWaiter, WaiterMessage};
 use crate::primary::helper::Helper;
@@ -26,7 +26,7 @@ use crate::primary::proposer::Proposer;
 use crate::primary::synchronizer::Synchronizer;
 
 mod aggregators;
-mod core;
+mod primary_core;
 mod certificate_waiter;
 mod header_waiter;
 mod helper;
@@ -169,7 +169,7 @@ impl Primary {
         let consensus_round = Arc::new(AtomicU64::new(0));
 
         // The `Core` receives and handles headers, votes, and certificates from the other primaries.
-        Core::spawn(
+        PrimaryCore::spawn(
             config.identity.clone(),
             config.initial_committee.clone(),
             store.clone(),

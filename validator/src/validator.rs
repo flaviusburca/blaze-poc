@@ -27,20 +27,43 @@ impl Validator {
         let primary_store = Store::new(&primary_store_path)
             .context("Could not create the primary ledger store")?;
 
-        Primary::spawn(&config, primary_store, tx_new_certificates, rx_feedback)?;
-        Consensus::spawn(config.initial_committee.clone(), 50, rx_new_certificates, tx_feedback, tx_output);
+        Primary::spawn(
+            &config,
+            primary_store,
+            tx_new_certificates,
+            rx_feedback
+        )?;
+
+        Consensus::spawn(
+            config.initial_committee.clone(),
+            50,
+            rx_new_certificates,
+            tx_feedback,
+            tx_output
+        );
 
         let executor_store_path = format!("{}_executor", config.ledger_path);
         let executor_store = Store::new(&executor_store_path)
             .context("Could not create the primary ledger store")?;
-        Executor::spawn(config.identity.pubkey(), config.initial_committee.clone(), executor_store, rx_output)?;
+
+        Executor::spawn(
+            config.identity.pubkey(),
+            config.initial_committee.clone(),
+            executor_store,
+            rx_output
+        )?;
 
         for i in 0..config.num_workers {
             let worker_store_path = format!("{}_worker_{}", config.ledger_path, i);
             let worker_store = Store::new(&worker_store_path)
                 .context(format!("Could not create worker ledger store for worker {}", i))?;
 
-            Worker::spawn(config.identity.pubkey(), i as WorkerId, config.initial_committee.clone(), worker_store)?;
+            Worker::spawn(
+                config.identity.pubkey(),
+                i as WorkerId,
+                config.initial_committee.clone(),
+                worker_store
+            )?;
         }
 
 
