@@ -1,9 +1,9 @@
 use super::*;
+use crate::primary::WorkerPrimaryMessage;
 use crate::worker::common::{batch_digest, committee_with_base_port, keys, listener, transaction};
+use mundis_model::signature::Signer;
 use mundis_network::simple_sender::SimpleSender;
 use std::fs;
-use mundis_model::signature::Signer;
-use crate::primary::WorkerPrimaryMessage;
 
 #[tokio::test]
 async fn handle_clients_transactions() {
@@ -20,7 +20,10 @@ async fn handle_clients_transactions() {
     Worker::spawn(authority.pubkey(), id, committee.clone(), store).unwrap();
 
     // Spawn a network listener to receive our batch's digest.
-    let primary_address = committee.primary(&authority.pubkey()).unwrap().worker_to_primary;
+    let primary_address = committee
+        .primary(&authority.pubkey())
+        .unwrap()
+        .worker_to_primary;
     let expected = bincode::serialize(&WorkerPrimaryMessage::OurBatch(batch_digest(), id)).unwrap();
     let handle = listener(primary_address, Some(Bytes::from(expected)));
 
@@ -32,7 +35,10 @@ async fn handle_clients_transactions() {
 
     // Send enough transactions to create a batch.
     let mut network = SimpleSender::new();
-    let address = committee.worker(&authority.pubkey(), &id).unwrap().transactions;
+    let address = committee
+        .worker(&authority.pubkey(), &id)
+        .unwrap()
+        .transactions;
     network.send(address, Bytes::from(transaction())).await;
     network.send(address, Bytes::from(transaction())).await;
 

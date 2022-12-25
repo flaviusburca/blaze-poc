@@ -7,8 +7,8 @@ pub mod config;
 pub mod hash;
 pub mod keypair;
 pub mod pubkey;
-pub mod signature;
 pub mod sanitize;
+pub mod signature;
 pub mod transaction;
 pub mod vote;
 

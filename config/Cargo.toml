@@ -4,7 +4,6 @@ version.workspace = true
 edition = "2021"
 
 [dependencies]
-anemo.workspace = true
 serde = { version = "1.0.144", features = ["derive", "rc"] }
 multiaddr.workspace = true
 thiserror = "1.0"

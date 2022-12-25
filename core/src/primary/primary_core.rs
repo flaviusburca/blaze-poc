@@ -1,23 +1,23 @@
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use log::{debug, error, warn};
-use tokio::sync::mpsc::{Receiver, Sender};
+use crate::primary::aggregators::{CertificatesAggregator, VotesAggregator};
+use crate::primary::synchronizer::Synchronizer;
+use crate::primary::PrimaryMessage;
 use async_recursion::async_recursion;
 use bytes::Bytes;
+use log::{debug, error, warn};
 use mundis_ledger::Store;
 use mundis_model::certificate::{Certificate, DagError, DagResult, Header};
 use mundis_model::committee::Committee;
 use mundis_model::hash::{Hash, Hashable};
 use mundis_model::keypair::Keypair;
 use mundis_model::pubkey::Pubkey;
-use mundis_model::Round;
 use mundis_model::signature::Signer;
 use mundis_model::vote::Vote;
+use mundis_model::Round;
 use mundis_network::reliable_sender::{CancelHandler, ReliableSender};
-use crate::primary::aggregators::{CertificatesAggregator, VotesAggregator};
-use crate::primary::PrimaryMessage;
-use crate::primary::synchronizer::Synchronizer;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 pub struct PrimaryCore {
     /// The public key of this primary.
@@ -64,7 +64,6 @@ pub struct PrimaryCore {
     cancel_handlers: HashMap<Round, Vec<CancelHandler>>,
 }
 
-
 impl PrimaryCore {
     pub fn spawn(
         authority: Keypair,
@@ -103,8 +102,8 @@ impl PrimaryCore {
                 network: ReliableSender::new(),
                 cancel_handlers: HashMap::with_capacity(2 * gc_depth as usize),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 
@@ -191,7 +190,8 @@ impl PrimaryCore {
         // Ensure we receive a vote on the expected header.
         if vote.id != self.current_header.id
             || vote.origin != self.current_header.author
-            || vote.round != self.current_header.round {
+            || vote.round != self.current_header.round
+        {
             return Err(DagError::UnexpectedVote(vote.id.clone()));
         }
 
@@ -201,7 +201,7 @@ impl PrimaryCore {
 
     fn sanitize_header(&mut self, header: &Header) -> DagResult<()> {
         if self.gc_round > header.round {
-            return Err(DagError::TooOld(header.id.clone(), header.round))
+            return Err(DagError::TooOld(header.id.clone(), header.round));
         }
 
         // Verify the header's signature.
@@ -324,13 +324,13 @@ impl PrimaryCore {
         let mut stake = 0;
         for x in parents {
             if x.round() + 1 != header.round {
-                return Err(DagError::MalformedHeader(header.id.clone()))
+                return Err(DagError::MalformedHeader(header.id.clone()));
             }
             stake += self.committee.stake(&x.origin());
         }
 
         if stake < self.committee.quorum_threshold() {
-            return Err(DagError::HeaderRequiresQuorum(header.id.clone()))
+            return Err(DagError::HeaderRequiresQuorum(header.id.clone()));
         }
 
         // Ensure we have the payload. If we don't, the synchronizer will ask our workers to get it, and then
@@ -400,7 +400,6 @@ impl PrimaryCore {
         self.process_header(&header).await
     }
 }
-
 
 #[cfg(test)]
 #[path = "tests/core_tests.rs"]

@@ -75,7 +75,7 @@ async fn process_header() {
     match bincode::deserialize(&received).unwrap() {
         PrimaryMessage::Vote(x) => {
             assert_eq!(x.hash(), expected.hash())
-        },
+        }
         x => panic!("Unexpected message: {:?}", x),
     }
 

@@ -1,11 +1,11 @@
 use super::*;
-use bytes::Bytes;
-use futures::future::try_join_all;
-use tokio::sync::mpsc::channel;
-use mundis_model::signature::Signer;
-use mundis_network::reliable_sender::ReliableSender;
 use crate::worker::common::{batch, committee_with_base_port, keys, listener};
 use crate::worker::WorkerMessage;
+use bytes::Bytes;
+use futures::future::try_join_all;
+use mundis_model::signature::Signer;
+use mundis_network::reliable_sender::ReliableSender;
+use tokio::sync::mpsc::channel;
 
 #[tokio::test]
 async fn wait_for_quorum() {

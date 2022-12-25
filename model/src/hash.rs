@@ -3,13 +3,13 @@
 //! [SHA-256]: https://en.wikipedia.org/wiki/SHA-2
 //! [`Hash`]: struct@Hash
 
-use std::{fmt, mem};
-use std::str::FromStr;
-use digest::Digest;
-use sha2::Sha256;
-use thiserror::Error;
-use serde::{Serialize, Deserialize};
 use crate::sanitize::Sanitize;
+use digest::Digest;
+use serde::{Deserialize, Serialize};
+use sha2::Sha256;
+use std::str::FromStr;
+use std::{fmt, mem};
+use thiserror::Error;
 
 /// Size of a hash in bytes.
 pub const HASH_BYTES: usize = 32;
@@ -17,18 +17,7 @@ pub const HASH_BYTES: usize = 32;
 const MAX_BASE58_LEN: usize = 44;
 
 /// A hash; the 32-byte output of a hashing algorithm.
-#[derive(
-Serialize,
-Deserialize,
-Clone,
-Copy,
-Default,
-Eq,
-PartialEq,
-Ord,
-PartialOrd,
-Hash,
-)]
+#[derive(Serialize, Deserialize, Clone, Copy, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub struct Hash(pub(crate) [u8; HASH_BYTES]);
 
 #[derive(Clone, Default)]

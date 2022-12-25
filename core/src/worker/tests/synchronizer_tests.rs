@@ -1,8 +1,8 @@
 use super::*;
 use crate::worker::common::{batch_digest, committee_with_base_port, keys, listener};
+use mundis_model::signature::Signer;
 use std::fs;
 use tokio::sync::mpsc::channel;
-use mundis_model::signature::Signer;
 
 #[tokio::test]
 async fn synchronize() {
@@ -32,7 +32,10 @@ async fn synchronize() {
 
     // Spawn a listener to receive our batch requests.
     let target = keys.pop().unwrap();
-    let address = committee.worker(&target.pubkey(), &id).unwrap().worker_to_worker;
+    let address = committee
+        .worker(&target.pubkey(), &id)
+        .unwrap()
+        .worker_to_worker;
     let missing = vec![batch_digest()];
     let message = WorkerMessage::BatchRequest(missing.clone(), authority.pubkey());
     let serialized = bincode::serialize(&message).unwrap();

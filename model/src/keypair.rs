@@ -1,12 +1,12 @@
+use anyhow::anyhow;
+use ed25519_dalek::Signer as DalekSigner;
+use hmac::Hmac;
+use rand::rngs::OsRng;
+use rand::{CryptoRng, RngCore};
 use std::fs;
 use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::path::Path;
-use anyhow::anyhow;
-use hmac::Hmac;
-use rand::{CryptoRng, RngCore};
-use rand::rngs::OsRng;
-use ed25519_dalek::Signer as DalekSigner;
 
 use crate::pubkey::Pubkey;
 use crate::signature::{Signature, Signer, SignerError};
@@ -17,8 +17,8 @@ pub struct Keypair(ed25519_dalek::Keypair);
 impl Keypair {
     /// Constructs a new, random `Keypair` using a caller-proveded RNG
     pub fn generate<R>(csprng: &mut R) -> Self
-        where
-            R: CryptoRng + RngCore,
+    where
+        R: CryptoRng + RngCore,
     {
         Self(ed25519_dalek::Keypair::generate(csprng))
     }
@@ -63,10 +63,7 @@ impl Clone for Keypair {
 }
 
 /// Writes a `Keypair` to a file with JSON-encoding
-pub fn write_keypair_file<F: AsRef<Path>>(
-    keypair: &Keypair,
-    outfile: F,
-) -> anyhow::Result<String> {
+pub fn write_keypair_file<F: AsRef<Path>>(keypair: &Keypair, outfile: F) -> anyhow::Result<String> {
     let outfile = outfile.as_ref();
 
     if let Some(outdir) = outfile.parent() {
@@ -84,19 +81,16 @@ pub fn write_keypair_file<F: AsRef<Path>>(
             OpenOptions::new().mode(0o600)
         }
     }
-        .write(true)
-        .truncate(true)
-        .create(true)
-        .open(outfile)?;
+    .write(true)
+    .truncate(true)
+    .create(true)
+    .open(outfile)?;
 
     write_keypair(keypair, &mut f)
 }
 
 /// Writes a `Keypair` to a `Write` implementor with JSON-encoding
-pub fn write_keypair<W: Write>(
-    keypair: &Keypair,
-    writer: &mut W,
-) -> anyhow::Result<String> {
+pub fn write_keypair<W: Write>(keypair: &Keypair, writer: &mut W) -> anyhow::Result<String> {
     let keypair_bytes = keypair.0.to_bytes();
     let serialized = serde_json::to_string(&keypair_bytes.to_vec())?;
     writer.write_all(&serialized.clone().into_bytes())?;
@@ -106,8 +100,8 @@ pub fn write_keypair<W: Write>(
 /// Reads a JSON-encoded `Keypair` from a `Reader` implementor
 pub fn read_keypair<R: Read>(reader: &mut R) -> anyhow::Result<Keypair> {
     let bytes: Vec<u8> = serde_json::from_reader(reader)?;
-    let dalek_keypair = ed25519_dalek::Keypair::from_bytes(&bytes)
-        .map_err(|e| anyhow!(e.to_string()))?;
+    let dalek_keypair =
+        ed25519_dalek::Keypair::from_bytes(&bytes).map_err(|e| anyhow!(e.to_string()))?;
     Ok(Keypair(dalek_keypair))
 }
 
@@ -181,8 +175,8 @@ impl Signer for Keypair {
 }
 
 impl<T> PartialEq<T> for Keypair
-    where
-        T: Signer,
+where
+    T: Signer,
 {
     fn eq(&self, other: &T) -> bool {
         self.pubkey() == other.pubkey()

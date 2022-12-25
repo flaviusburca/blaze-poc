@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
-use crate::keypair::Keypair;
-use thiserror::Error;
 use crate::committee::Committee;
+use crate::keypair::Keypair;
 use crate::pubkey::Pubkey;
+use std::collections::BTreeMap;
+use thiserror::Error;
 
 pub struct ValidatorConfig {
     pub identity: Keypair,
@@ -32,7 +32,7 @@ impl Default for ValidatorConfig {
                 authorities: BTreeMap::default(),
                 epoch: 0,
             },
-            num_workers: 1
+            num_workers: 1,
         }
     }
 }

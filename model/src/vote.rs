@@ -1,12 +1,12 @@
-use std::fmt;
-use serde::{Serialize, Deserialize};
 use crate::certificate::{DagError, DagResult, Header};
 use crate::committee::Committee;
 use crate::hash::{Hash, Hashable, Hasher};
 use crate::keypair::Keypair;
 use crate::pubkey::Pubkey;
-use crate::Round;
 use crate::signature::{Signature, Signer};
+use crate::Round;
+use serde::{Deserialize, Serialize};
+use std::fmt;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Vote {
@@ -18,10 +18,7 @@ pub struct Vote {
 }
 
 impl Vote {
-    pub async fn new(
-        header: &Header,
-        author: &Keypair,
-    ) -> Self {
+    pub async fn new(header: &Header, author: &Keypair) -> Self {
         let vote = Self {
             id: header.id.clone(),
             round: header.round,
@@ -47,7 +44,10 @@ impl Vote {
         }
 
         // Check the signature.
-        if self.signature.verify(self.author.as_ref(), self.hash().as_ref()){
+        if self
+            .signature
+            .verify(self.author.as_ref(), self.hash().as_ref())
+        {
             Ok(())
         } else {
             Err(DagError::InvalidSignature)

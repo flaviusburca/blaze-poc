@@ -1,7 +1,7 @@
-use tokio::sync::mpsc::Receiver;
 use mundis_ledger::Store;
 use mundis_model::hash::Hash;
 use mundis_model::WorkerId;
+use tokio::sync::mpsc::Receiver;
 
 /// Receives batches' digests of other authorities. These are only needed to verify incoming
 /// headers (ie. make sure we have their payload).

@@ -1,13 +1,13 @@
-use std::cmp::max;
-use std::collections::{HashMap, HashSet};
-use log::{debug, info, log_enabled, warn};
 use itertools::Itertools;
-use tokio::sync::mpsc::{Receiver, Sender};
+use log::{debug, info, log_enabled, warn};
 use mundis_model::certificate::Certificate;
 use mundis_model::committee::Committee;
 use mundis_model::hash::{Hash, Hashable};
 use mundis_model::pubkey::Pubkey;
 use mundis_model::{Round, Stake};
+use std::cmp::max;
+use std::collections::{HashMap, HashSet};
+use tokio::sync::mpsc::{Receiver, Sender};
 
 /// The representation of the DAG in memory.
 type Dag = HashMap<Round, HashMap<Pubkey, (Hash, Certificate)>>;
@@ -72,10 +72,11 @@ impl State {
                     let pair = entry.unwrap().get(pubkey);
                     if pair.is_some() {
                         let (digest, _certificate) = pair.unwrap();
-                        let votes = _certificate.votes.iter()
-                            .map(|c| c.0)
-                            .join(", ");
-                        msg += &*format!("\n\t Author={}, Certificate_Digest={}, Votes={}", pubkey, digest, votes);
+                        let votes = _certificate.votes.iter().map(|c| c.0).join(", ");
+                        msg += &*format!(
+                            "\n\t Author={}, Certificate_Digest={}, Votes={}",
+                            pubkey, digest, votes
+                        );
                     } else {
                         msg += &*format!("\n\t Empty");
                     }
@@ -124,8 +125,8 @@ impl Consensus {
                 tx_output,
                 genesis: Certificate::genesis(&committee),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

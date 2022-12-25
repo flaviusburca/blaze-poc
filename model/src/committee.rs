@@ -1,15 +1,12 @@
+use crate::config::ConfigError;
+use crate::{Stake, WorkerId};
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
 use {
-    crate::{
-        base_types::Epoch,
-        pubkey::Pubkey
-    },
+    crate::{base_types::Epoch, pubkey::Pubkey},
     serde::{Deserialize, Serialize},
     std::collections::BTreeMap,
 };
-use crate::config::ConfigError;
-use crate::{Stake, WorkerId};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
 pub struct PrimaryAddresses {
@@ -120,7 +117,11 @@ impl Committee {
     }
 
     /// Returns the addresses of a specific worker (`id`) of a specific authority (`to`).
-    pub fn worker(&self, authority: &Pubkey, id: &WorkerId) -> Result<WorkerAddresses, ConfigError> {
+    pub fn worker(
+        &self,
+        authority: &Pubkey,
+        id: &WorkerId,
+    ) -> Result<WorkerAddresses, ConfigError> {
         self.authorities
             .iter()
             .find(|(name, _)| name == &authority)
@@ -149,11 +150,7 @@ impl Committee {
 
     /// Returns the addresses of all workers with a specific id except the ones of the authority
     /// specified by `myself`.
-    pub fn others_workers(
-        &self,
-        myself: &Pubkey,
-        id: &WorkerId,
-    ) -> Vec<(Pubkey, WorkerAddresses)> {
+    pub fn others_workers(&self, myself: &Pubkey, id: &WorkerId) -> Vec<(Pubkey, WorkerAddresses)> {
         self.authorities
             .iter()
             .filter(|(name, _)| name != &myself)
@@ -177,21 +174,33 @@ impl Committee {
 
     pub fn for_testing(pubkey: Pubkey) -> Self {
         let mut authorities = BTreeMap::new();
-        authorities.insert(pubkey, Authority {
-            stake: 100,
-            primary: PrimaryAddresses {
-                primary_to_primary: SocketAddr::new("0.0.0.0".parse::<IpAddr>().unwrap(), 10000),
-                worker_to_primary: SocketAddr::new("127.0.0.1".parse::<IpAddr>().unwrap(), 10001),
+        authorities.insert(
+            pubkey,
+            Authority {
+                stake: 100,
+                primary: PrimaryAddresses {
+                    primary_to_primary: SocketAddr::new(
+                        "0.0.0.0".parse::<IpAddr>().unwrap(),
+                        10000,
+                    ),
+                    worker_to_primary: SocketAddr::new(
+                        "127.0.0.1".parse::<IpAddr>().unwrap(),
+                        10001,
+                    ),
+                },
+                workers: Default::default(),
+                executor: ExecutorAddresses {
+                    worker_to_executor: SocketAddr::new(
+                        "127.0.0.1".parse::<IpAddr>().unwrap(),
+                        10002,
+                    ),
+                },
             },
-            workers: Default::default(),
-            executor: ExecutorAddresses {
-                worker_to_executor: SocketAddr::new("127.0.0.1".parse::<IpAddr>().unwrap(), 10002),
-            },
-        });
+        );
 
         Self {
             epoch: 0,
-            authorities
+            authorities,
         }
     }
 }
@@ -200,8 +209,7 @@ impl Default for Committee {
     fn default() -> Self {
         Self {
             epoch: 0,
-            authorities: BTreeMap::default()
+            authorities: BTreeMap::default(),
         }
     }
 }
-

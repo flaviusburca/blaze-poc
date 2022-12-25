@@ -24,22 +24,17 @@ impl Validator {
         let (tx_feedback, rx_feedback) = channel::<Certificate>(CHANNEL_CAPACITY);
 
         let primary_store_path = format!("{}_primary", config.ledger_path);
-        let primary_store = Store::new(&primary_store_path)
-            .context("Could not create the primary ledger store")?;
+        let primary_store =
+            Store::new(&primary_store_path).context("Could not create the primary ledger store")?;
 
-        Primary::spawn(
-            &config,
-            primary_store,
-            tx_new_certificates,
-            rx_feedback
-        )?;
+        Primary::spawn(&config, primary_store, tx_new_certificates, rx_feedback)?;
 
         Consensus::spawn(
             config.initial_committee.clone(),
             50,
             rx_new_certificates,
             tx_feedback,
-            tx_output
+            tx_output,
         );
 
         let executor_store_path = format!("{}_executor", config.ledger_path);
@@ -50,22 +45,23 @@ impl Validator {
             config.identity.pubkey(),
             config.initial_committee.clone(),
             executor_store,
-            rx_output
+            rx_output,
         )?;
 
         for i in 0..config.num_workers {
             let worker_store_path = format!("{}_worker_{}", config.ledger_path, i);
-            let worker_store = Store::new(&worker_store_path)
-                .context(format!("Could not create worker ledger store for worker {}", i))?;
+            let worker_store = Store::new(&worker_store_path).context(format!(
+                "Could not create worker ledger store for worker {}",
+                i
+            ))?;
 
             Worker::spawn(
                 config.identity.pubkey(),
                 i as WorkerId,
                 config.initial_committee.clone(),
-                worker_store
+                worker_store,
             )?;
         }
-
 
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;

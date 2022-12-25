@@ -1,14 +1,14 @@
-use std::cmp::Ordering;
-use std::time::Duration;
 use log::{debug, log_enabled, warn};
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{Instant, sleep};
+use mundis_model::base_types::Epoch;
 use mundis_model::certificate::{Certificate, Header};
 use mundis_model::committee::Committee;
-use mundis_model::{Round, WorkerId};
-use mundis_model::base_types::Epoch;
 use mundis_model::hash::{Hash, Hashable};
 use mundis_model::keypair::Keypair;
+use mundis_model::{Round, WorkerId};
+use std::cmp::Ordering;
+use std::time::Duration;
+use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::time::{sleep, Instant};
 
 /// The proposer creates new headers and send them to the core for broadcasting and further processing.
 pub struct Proposer {
@@ -66,8 +66,8 @@ impl Proposer {
                 digests: Vec::with_capacity(2 * header_size),
                 payload_size: 0,
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

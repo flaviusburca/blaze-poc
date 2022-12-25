@@ -1,6 +1,6 @@
-use std::{fmt, mem};
-use std::str::FromStr;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
+use std::{fmt, mem};
 use thiserror::Error;
 
 /// Number of bytes in a pubkey

@@ -1,15 +1,15 @@
-use std::{fmt, mem};
-use std::borrow::{Borrow, Cow};
-use std::str::FromStr;
-use ed25519_dalek::SignatureError;
-use generic_array::GenericArray;
-use generic_array::typenum::U64;
-use itertools::Itertools;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use crate::hash::Hash;
 use crate::keypair::Keypair;
 use crate::pubkey::Pubkey;
+use ed25519_dalek::SignatureError;
+use generic_array::typenum::U64;
+use generic_array::GenericArray;
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+use std::borrow::{Borrow, Cow};
+use std::str::FromStr;
+use std::{fmt, mem};
+use thiserror::Error;
 
 /// Number of bytes in a signature
 pub const SIGNATURE_BYTES: usize = 64;
@@ -47,13 +47,14 @@ impl Signature {
     }
 
     pub fn verify_batch<'a, I>(hash: &Hash, pairs: I) -> Result<(), SignatureError>
-        where I: IntoIterator<Item = &'a (Pubkey, Signature)>
+    where
+        I: IntoIterator<Item = &'a (Pubkey, Signature)>,
     {
         let mut messages: Vec<&[u8]> = Vec::new();
         let mut signatures: Vec<ed25519_dalek::Signature> = Vec::new();
         let mut keys: Vec<ed25519_dalek::PublicKey> = Vec::new();
         for (key, sig) in pairs.into_iter() {
-            messages.push( hash.as_ref());
+            messages.push(hash.as_ref());
             signatures.push(sig.0.as_slice().try_into()?);
             keys.push(ed25519_dalek::PublicKey::from_bytes(key.as_ref())?);
         }
@@ -111,7 +112,6 @@ impl FromStr for Signature {
         }
     }
 }
-
 
 pub trait Signable {
     fn sign(&mut self, keypair: &Keypair) {
@@ -180,8 +180,8 @@ pub trait Signer {
 }
 
 impl<T> From<T> for Box<dyn Signer>
-    where
-        T: Signer + 'static,
+where
+    T: Signer + 'static,
 {
     fn from(signer: T) -> Self {
         Box::new(signer)
@@ -207,11 +207,11 @@ pub fn unique_signers(signers: Vec<&dyn Signer>) -> Vec<&dyn Signer> {
 
 #[cfg(test)]
 mod tests {
-    use rand::rngs::StdRng;
-    use rand::SeedableRng;
     use crate::hash::Hashable;
     use crate::keypair::Keypair;
     use crate::signature::{Signature, Signer};
+    use rand::rngs::StdRng;
+    use rand::SeedableRng;
 
     pub fn keys() -> Vec<Keypair> {
         let mut rng = StdRng::from_seed([0; 32]);

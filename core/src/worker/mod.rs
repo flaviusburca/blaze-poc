@@ -1,23 +1,23 @@
-use std::error::Error;
+use crate::primary::PrimaryWorkerMessage;
+use crate::worker::batch_maker::{Batch, BatchMaker, Transaction};
+use crate::worker::helper::{ExecutorHelper, Helper};
+use crate::worker::primary_connector::PrimaryConnector;
+use crate::worker::processor::{SerializedBatchMessage, WorkerProcessor};
+use crate::worker::quorum_waiter::{QuorumWaiter, QuorumWaiterMessage};
+use crate::worker::synchronizer::Synchronizer;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::SinkExt as _;
 use log::{error, info, warn};
-use serde::{Serialize, Deserialize};
-use tokio::sync::mpsc::{channel, Sender};
 use mundis_ledger::Store;
 use mundis_model::committee::Committee;
 use mundis_model::hash::Hash;
 use mundis_model::pubkey::Pubkey;
 use mundis_model::WorkerId;
 use mundis_network::receiver::{MessageHandler, NetworkReceiver, Writer};
-use crate::primary::PrimaryWorkerMessage;
-use crate::worker::batch_maker::{Batch, BatchMaker, Transaction};
-use crate::worker::helper::{ExecutorHelper, Helper};
-use crate::worker::primary_connector::PrimaryConnector;
-use crate::worker::processor::{WorkerProcessor, SerializedBatchMessage};
-use crate::worker::quorum_waiter::{QuorumWaiter, QuorumWaiterMessage};
-use crate::worker::synchronizer::Synchronizer;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use tokio::sync::mpsc::{channel, Sender};
 
 mod batch_maker;
 mod helper;
@@ -56,7 +56,7 @@ impl Worker {
         authority: Pubkey,
         id: WorkerId,
         committee: Committee,
-        store: Store
+        store: Store,
     ) -> anyhow::Result<()> {
         // Define a worker instance.
         let worker = Self {

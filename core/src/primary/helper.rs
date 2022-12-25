@@ -1,12 +1,12 @@
+use crate::primary::PrimaryMessage;
 use bytes::Bytes;
 use log::{error, warn};
-use tokio::sync::mpsc::Receiver;
 use mundis_ledger::Store;
 use mundis_model::committee::Committee;
 use mundis_model::hash::Hash;
 use mundis_model::pubkey::Pubkey;
 use mundis_network::simple_sender::SimpleSender;
-use crate::primary::PrimaryMessage;
+use tokio::sync::mpsc::Receiver;
 
 /// A task dedicated to help other authorities by replying to their certificates requests.
 pub struct Helper {
@@ -21,11 +21,7 @@ pub struct Helper {
 }
 
 impl Helper {
-    pub fn spawn(
-        committee: Committee,
-        store: Store,
-        rx_primaries: Receiver<(Vec<Hash>, Pubkey)>,
-    ) {
+    pub fn spawn(committee: Committee, store: Store, rx_primaries: Receiver<(Vec<Hash>, Pubkey)>) {
         tokio::spawn(async move {
             Self {
                 committee,
@@ -33,8 +29,8 @@ impl Helper {
                 rx_primaries,
                 network: SimpleSender::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

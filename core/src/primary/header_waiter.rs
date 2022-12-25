@@ -1,22 +1,22 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::primary::{PrimaryMessage, PrimaryWorkerMessage};
 use bytes::Bytes;
 use futures::future::try_join_all;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt as _;
 use log::{debug, error};
-use tokio::sync::mpsc::{Receiver, Sender, channel};
-use tokio::time::{Instant, sleep};
 use mundis_ledger::Store;
 use mundis_model::certificate::{DagError, DagResult, Header};
 use mundis_model::committee::Committee;
 use mundis_model::hash::Hash;
-use mundis_model::{Round, WorkerId};
 use mundis_model::pubkey::Pubkey;
+use mundis_model::{Round, WorkerId};
 use mundis_network::simple_sender::SimpleSender;
-use crate::primary::{PrimaryMessage, PrimaryWorkerMessage};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::time::{sleep, Instant};
 
 /// The resolution of the timer that checks whether we received replies to our sync requests, and triggers
 /// new sync requests if we didn't.
@@ -28,7 +28,6 @@ pub enum WaiterMessage {
     SyncBatches(HashMap<Hash, WorkerId>, Header),
     SyncParents(Vec<Hash>, Header),
 }
-
 
 /// Waits for missing parent certificates and batches' digests.
 pub struct HeaderWaiter {
@@ -93,8 +92,8 @@ impl HeaderWaiter {
                 batch_requests: HashMap::new(),
                 pending: HashMap::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

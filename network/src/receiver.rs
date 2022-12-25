@@ -1,12 +1,12 @@
-use std::net::SocketAddr;
+use crate::NetworkError;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::stream::SplitSink;
 use futures::StreamExt;
 use log::{debug, info, warn};
+use std::net::SocketAddr;
 use tokio::net::{TcpListener, TcpStream};
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
-use crate::NetworkError;
 
 /// Convenient alias for the writer end of the TCP channel.
 pub type Writer = SplitSink<Framed<TcpStream, LengthDelimitedCodec>, Bytes>;
@@ -17,7 +17,11 @@ pub trait MessageHandler: Clone + Send + Sync + 'static {
     /// number of `Sender<T>` channels. Then implement `dispatch` to deserialize incoming messages and
     /// forward them through the appropriate delivery channel. Then `writer` can be used to send back
     /// responses or acknowledgements to the sender machine (see unit tests for examples).
-    async fn dispatch(&self, writer: &mut Writer, message: Bytes) -> Result<(), Box<dyn std::error::Error>>;
+    async fn dispatch(
+        &self,
+        writer: &mut Writer,
+        message: Bytes,
+    ) -> Result<(), Box<dyn std::error::Error>>;
 }
 
 /// For each incoming request, we spawn a new runner responsible to receive messages and forward them
@@ -28,7 +32,6 @@ pub struct NetworkReceiver<Handler: MessageHandler> {
     /// Struct responsible to define how to handle received messages.
     handler: Handler,
 }
-
 
 impl<Handler: MessageHandler> NetworkReceiver<Handler> {
     /// Spawn a new network receiver handling connections from any incoming peer.

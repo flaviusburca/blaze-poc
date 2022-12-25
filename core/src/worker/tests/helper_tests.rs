@@ -1,10 +1,12 @@
-use std::fs;
+use crate::worker::common::{
+    batch_digest, committee_with_base_port, keys, listener, serialized_batch,
+};
+use crate::worker::helper::Helper;
 use bytes::Bytes;
-use tokio::sync::mpsc::channel;
 use mundis_ledger::Store;
 use mundis_model::signature::Signer;
-use crate::worker::common::{batch_digest, committee_with_base_port, keys, listener, serialized_batch};
-use crate::worker::helper::Helper;
+use std::fs;
+use tokio::sync::mpsc::channel;
 
 #[tokio::test]
 async fn batch_reply() {
@@ -27,13 +29,19 @@ async fn batch_reply() {
     Helper::spawn(id, committee.clone(), store, rx_request);
 
     // Spawn a listener to receive the batch reply.
-    let address = committee.worker(&requestor.pubkey(), &id).unwrap().worker_to_worker;
+    let address = committee
+        .worker(&requestor.pubkey(), &id)
+        .unwrap()
+        .worker_to_worker;
     let expected = Bytes::from(serialized_batch());
     let handle = listener(address, Some(expected));
 
     // Send a batch request.
     let digests = vec![batch_digest()];
-    tx_request.send((digests, requestor.pubkey())).await.unwrap();
+    tx_request
+        .send((digests, requestor.pubkey()))
+        .await
+        .unwrap();
 
     // Ensure the requestor received the batch (ie. it did not panic).
     assert!(handle.await.is_ok());

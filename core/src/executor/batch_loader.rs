@@ -1,11 +1,9 @@
-use std::collections::HashMap;
-use std::time::Duration;
+use crate::executor::executor_core::ExecutorCoreMessage;
+use crate::worker::WorkerMessage;
 use bytes::Bytes;
 use futures::stream::FuturesOrdered;
 use futures::StreamExt as _;
 use log::debug;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{Instant, sleep};
 use mundis_ledger::{Store, StoreError};
 use mundis_model::certificate::Certificate;
 use mundis_model::committee::Committee;
@@ -13,8 +11,10 @@ use mundis_model::hash::{Hash, Hasher};
 use mundis_model::pubkey::Pubkey;
 use mundis_model::WorkerId;
 use mundis_network::simple_sender::SimpleSender;
-use crate::executor::executor_core::ExecutorCoreMessage;
-use crate::worker::WorkerMessage;
+use std::collections::HashMap;
+use std::time::Duration;
+use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::time::{sleep, Instant};
 
 /// The resolution of the timer that checks whether we received replies to our batch requests,
 /// and triggers new batch requests if we didn't.
@@ -68,8 +68,8 @@ impl BatchLoader {
                 network: SimpleSender::new(),
                 pending: HashMap::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

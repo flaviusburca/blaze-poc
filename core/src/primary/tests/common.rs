@@ -2,18 +2,20 @@
 use bytes::Bytes;
 use futures::sink::SinkExt as _;
 use futures::stream::StreamExt as _;
-use rand::SeedableRng as _;
-use std::net::SocketAddr;
-use rand::rngs::StdRng;
-use tokio::net::TcpListener;
-use tokio::task::JoinHandle;
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
 use mundis_model::certificate::{Certificate, Header};
-use mundis_model::committee::{Authority, Committee, ExecutorAddresses, PrimaryAddresses, WorkerAddresses};
+use mundis_model::committee::{
+    Authority, Committee, ExecutorAddresses, PrimaryAddresses, WorkerAddresses,
+};
 use mundis_model::hash::Hashable;
 use mundis_model::keypair::Keypair;
 use mundis_model::signature::{Signature, Signer};
 use mundis_model::vote::Vote;
+use rand::rngs::StdRng;
+use rand::SeedableRng as _;
+use std::net::SocketAddr;
+use tokio::net::TcpListener;
+use tokio::task::JoinHandle;
+use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 pub fn keys() -> Vec<Keypair> {
     let mut rng = StdRng::from_seed([0; 32]);
@@ -39,9 +41,9 @@ pub fn committee() -> Committee {
                         worker_to_worker: format!("127.0.0.1:{}", 500 + i).parse().unwrap(),
                     },
                 )]
-                    .iter()
-                    .cloned()
-                    .collect();
+                .iter()
+                .cloned()
+                .collect();
                 let executor = ExecutorAddresses {
                     worker_to_executor: format!("127.0.0.1:{}", 600 + i).parse().unwrap(),
                 };
@@ -144,10 +146,7 @@ pub fn votes(header: &Header) -> Vec<Vote> {
                 signature: Signature::default(),
             };
             let signature = keypair.sign_message(vote.hash().as_ref());
-            Vote {
-                signature,
-                ..vote
-            }
+            Vote { signature, ..vote }
         })
         .collect()
 }

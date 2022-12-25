@@ -1,13 +1,13 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use super::*;
-use std::collections::{BTreeSet, VecDeque};
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use tokio::sync::mpsc::channel;
 use mundis_model::certificate::Header;
 use mundis_model::committee::{Authority, ExecutorAddresses, PrimaryAddresses};
 use mundis_model::keypair::Keypair;
 use mundis_model::signature::Signer;
+use rand::rngs::StdRng;
+use rand::SeedableRng;
+use std::collections::{BTreeSet, VecDeque};
+use tokio::sync::mpsc::channel;
 
 pub fn keys() -> Vec<Keypair> {
     let mut rng = StdRng::from_seed([0; 32]);
@@ -39,11 +39,7 @@ pub fn mock_committee() -> Committee {
     }
 }
 
-fn mock_certificate(
-    origin: Pubkey,
-    round: Round,
-    parents: BTreeSet<Hash>,
-) -> (Hash, Certificate) {
+fn mock_certificate(origin: Pubkey, round: Round, parents: BTreeSet<Hash>) -> (Hash, Certificate) {
     let certificate = Certificate {
         header: Header {
             author: origin,

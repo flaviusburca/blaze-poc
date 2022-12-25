@@ -1,19 +1,19 @@
-use std::collections::HashMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use crate::primary::PrimaryWorkerMessage;
+use crate::worker::WorkerMessage;
 use bytes::Bytes;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt as _;
 use log::{debug, error};
-use tokio::sync::mpsc::{Receiver, Sender, channel};
-use tokio::time::{Instant, sleep};
 use mundis_ledger::{Store, StoreError};
 use mundis_model::committee::Committee;
+use mundis_model::hash::Hash;
 use mundis_model::pubkey::Pubkey;
 use mundis_model::{Round, WorkerId};
-use mundis_model::hash::Hash;
 use mundis_network::simple_sender::SimpleSender;
-use crate::primary::PrimaryWorkerMessage;
-use crate::worker::WorkerMessage;
+use std::collections::HashMap;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::time::{sleep, Instant};
 
 /// Resolution of the timer managing retrials of sync requests (in ms).
 const TIMER_RESOLUTION: u64 = 1_000;
@@ -72,8 +72,8 @@ impl Synchronizer {
                 round: Round::default(),
                 pending: HashMap::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

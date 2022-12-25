@@ -1,22 +1,27 @@
+use anyhow::anyhow;
+use bip39::{Language, Mnemonic, MnemonicType, Seed};
+use colored::{ColoredString, Colorize};
+use log::info;
+use mundis_model::keypair::{
+    generate_seed_from_seed_phrase_and_passphrase, keypair_from_seed,
+    keypair_from_seed_phrase_and_passphrase, read_keypair_file, write_keypair, write_keypair_file,
+    Keypair,
+};
+use mundis_model::pubkey::Pubkey;
+use mundis_model::signature::Signer;
+use rpassword::prompt_password;
 use std::io::{stdin, stdout, Write};
 use std::path::PathBuf;
 use std::process::exit;
-use anyhow::anyhow;
-use bip39::{Language, Mnemonic, MnemonicType, Seed};
-
-use clap::*;
-use colored::{ColoredString, Colorize};
-use log::info;
-use rpassword::prompt_password;
-use mundis_model::keypair::{generate_seed_from_seed_phrase_and_passphrase, Keypair, keypair_from_seed, keypair_from_seed_phrase_and_passphrase, read_keypair_file, Signer, write_keypair, write_keypair_file};
-
-use mundis_model::pubkey::Pubkey;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 #[clap(rename_all = "kebab-case")]
 pub enum KeytoolCommand {
-    #[clap(name = "new", about = "Generate new keypair file from a random seed phrase and optional BIP39 passphrase")]
+    #[clap(
+        name = "new",
+        about = "Generate new keypair file from a random seed phrase and optional BIP39 passphrase"
+    )]
     New {
         #[clap(help = "Path to generated file", required = true)]
         outfile: PathBuf,
@@ -24,7 +29,10 @@ pub enum KeytoolCommand {
         force: bool,
         #[clap(help = "Do not prompt for a BIP39 passphrase")]
         no_passphrase: bool,
-        #[clap(long, help = "Do not display seed phrase. Useful when piping output to other programs that prompt for user input, like gpg")]
+        #[clap(
+            long,
+            help = "Do not display seed phrase. Useful when piping output to other programs that prompt for user input, like gpg"
+        )]
         silent: bool,
     },
 
@@ -34,7 +42,10 @@ pub enum KeytoolCommand {
         keypair_file: PathBuf,
     },
 
-    #[clap(name = "recover", about = "Recover keypair from a seed phrase and an optional passphrase")]
+    #[clap(
+        name = "recover",
+        about = "Recover keypair from a seed phrase and an optional passphrase"
+    )]
     Recover {
         #[clap(help = "Path to generated file", required = true)]
         outfile: PathBuf,
@@ -46,13 +57,22 @@ pub enum KeytoolCommand {
 impl KeytoolCommand {
     pub async fn execute(self) -> anyhow::Result<()> {
         match self {
-            KeytoolCommand::New { outfile, force, no_passphrase, silent } => {
+            KeytoolCommand::New {
+                outfile,
+                force,
+                no_passphrase,
+                silent,
+            } => {
                 if !force && outfile.exists() {
-                    return Err(anyhow!("Refusing to overwrite {} without --force flag", outfile.display()));
+                    return Err(anyhow!(
+                        "Refusing to overwrite {} without --force flag",
+                        outfile.display()
+                    ));
                 }
 
                 let mnemonic = Mnemonic::new(MnemonicType::Words12, Language::English);
-                let (passphrase, passphrase_message) = Self::acquire_passphrase_and_message(no_passphrase)?;
+                let (passphrase, passphrase_message) =
+                    Self::acquire_passphrase_and_message(no_passphrase)?;
                 let seed = Seed::new(&mnemonic, &passphrase);
                 let keypair = keypair_from_seed(seed.as_bytes())?;
 
@@ -62,24 +82,33 @@ impl KeytoolCommand {
                 if !silent {
                     let phrase: &str = mnemonic.phrase();
                     let divider = String::from_utf8(vec![b'='; phrase.len()]).unwrap();
-                    println!("\n{}\n\
+                    println!(
+                        "\n{}\n\
                         pubkey: {}\n\
                         {}\n\
                         {}:\n\
                         {}\n\
                         {}",
-                             &divider,
-                             keypair.pubkey().to_string().bold(),
-                             &divider,
-                             format!("Save this seed phrase{} to recover your new keypair:", passphrase_message).to_string().red(),
-                             phrase.bold(),
-                             &divider
+                        &divider,
+                        keypair.pubkey().to_string().bold(),
+                        &divider,
+                        format!(
+                            "Save this seed phrase{} to recover your new keypair:",
+                            passphrase_message
+                        )
+                        .to_string()
+                        .red(),
+                        phrase.bold(),
+                        &divider
                     );
                 }
             }
             KeytoolCommand::Pubkey { keypair_file } => {
                 if !keypair_file.exists() {
-                    return Err(anyhow!("The provided keypair {} does not exist", keypair_file.display()));
+                    return Err(anyhow!(
+                        "The provided keypair {} does not exist",
+                        keypair_file.display()
+                    ));
                 }
 
                 let keypair = read_keypair_file(keypair_file.as_path())?;
@@ -87,9 +116,11 @@ impl KeytoolCommand {
             }
             KeytoolCommand::Recover { outfile, force } => {
                 if !force && outfile.exists() {
-                    return Err(anyhow!("Refusing to overwrite {} without --force flag", outfile.display()));
+                    return Err(anyhow!(
+                        "Refusing to overwrite {} without --force flag",
+                        outfile.display()
+                    ));
                 }
-
 
                 let seed_phrase = prompt_password("Enter seed phrase: ")?;
                 let seed_phrase = seed_phrase.trim();
@@ -97,7 +128,8 @@ impl KeytoolCommand {
                     "If this seed phrase has an associated passphrase, enter it now. Otherwise, press ENTER to continue:"
                 )?;
 
-                let keypair = keypair_from_seed_phrase_and_passphrase(&seed_phrase, passphrase.as_str())?;
+                let keypair =
+                    keypair_from_seed_phrase_and_passphrase(&seed_phrase, passphrase.as_str())?;
                 let pubkey = keypair.pubkey();
                 print!("Recovered pubkey `{pubkey:?}`. Continue? (y/n): ");
                 let _ignored = stdout().flush();
@@ -151,11 +183,7 @@ impl KeytoolCommand {
         Ok(passphrase)
     }
 
-    fn output_keypair(
-        keypair: &Keypair,
-        outfile: &str,
-        source: &str,
-    ) -> anyhow::Result<()> {
+    fn output_keypair(keypair: &Keypair, outfile: &str, source: &str) -> anyhow::Result<()> {
         if outfile == "-" {
             let mut stdout = std::io::stdout();
             write_keypair(keypair, &mut stdout)?;

@@ -1,12 +1,12 @@
 use bytes::Bytes;
 use log::{debug, error, warn};
-use tokio::sync::mpsc::Receiver;
 use mundis_ledger::Store;
 use mundis_model::committee::Committee;
 use mundis_model::hash::Hash;
 use mundis_model::pubkey::Pubkey;
 use mundis_model::WorkerId;
 use mundis_network::simple_sender::SimpleSender;
+use tokio::sync::mpsc::Receiver;
 
 /// A task dedicated to help other authorities by replying to their batch requests.
 pub struct Helper {
@@ -37,8 +37,8 @@ impl Helper {
                 rx_request,
                 network: SimpleSender::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 
@@ -95,8 +95,8 @@ impl ExecutorHelper {
                 rx_request,
                 network: SimpleSender::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

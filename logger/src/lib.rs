@@ -53,4 +53,3 @@ pub fn setup_with_default(filter: &str) {
 pub fn setup() {
     setup_with_default("info");
 }
-

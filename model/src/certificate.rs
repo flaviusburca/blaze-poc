@@ -5,13 +5,13 @@ use std::time::SystemTime;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::{Round, WorkerId};
 use crate::base_types::Epoch;
 use crate::committee::Committee;
 use crate::hash::{Hash, Hashable, Hasher};
 use crate::keypair::Keypair;
 use crate::pubkey::Pubkey;
 use crate::signature::{Signature, Signer};
+use crate::{Round, WorkerId};
 
 pub type DagResult<T> = Result<T, DagError>;
 
@@ -106,8 +106,7 @@ impl Certificate {
         }
 
         // Check the signatures.
-        Signature::verify_batch(&self.hash(), &self.votes)
-            .map_err(|_| DagError::InvalidSignature)
+        Signature::verify_batch(&self.hash(), &self.votes).map_err(|_| DagError::InvalidSignature)
     }
 
     pub fn round(&self) -> Round {
@@ -200,7 +199,10 @@ impl Header {
     pub fn verify(&self, committee: &Committee) -> DagResult<()> {
         // Ensure the header is from the correct epoch.
         if self.epoch != committee.epoch() {
-            return Err(DagError::InvalidEpoch { expected: committee.epoch(), received: self.epoch });
+            return Err(DagError::InvalidEpoch {
+                expected: committee.epoch(),
+                received: self.epoch,
+            });
         }
 
         // Ensure the header id is well formed.
@@ -222,7 +224,10 @@ impl Header {
         }
 
         // Check the signature.
-        if !self.signature.verify(&self.author.as_ref(), &self.id.as_ref()) {
+        if !self
+            .signature
+            .verify(&self.author.as_ref(), &self.id.as_ref())
+        {
             return Err(DagError::InvalidSignature);
         }
 

@@ -1,8 +1,8 @@
-use std::net::SocketAddr;
-use bytes::Bytes;
-use tokio::sync::mpsc::Receiver;
-use mundis_network::simple_sender::SimpleSender;
 use crate::worker::SerializedBatchDigestMessage;
+use bytes::Bytes;
+use mundis_network::simple_sender::SimpleSender;
+use std::net::SocketAddr;
+use tokio::sync::mpsc::Receiver;
 
 // Send batches' digests to the primary.
 pub struct PrimaryConnector {
@@ -22,8 +22,8 @@ impl PrimaryConnector {
                 rx_digest,
                 network: SimpleSender::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

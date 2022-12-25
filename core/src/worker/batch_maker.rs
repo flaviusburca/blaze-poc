@@ -1,12 +1,12 @@
-use std::net::SocketAddr;
-use std::time::Duration;
-use bytes::Bytes;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{Instant, sleep};
-use mundis_model::pubkey::Pubkey;
-use mundis_network::reliable_sender::ReliableSender;
 use crate::worker::quorum_waiter::QuorumWaiterMessage;
 use crate::worker::WorkerMessage;
+use bytes::Bytes;
+use mundis_model::pubkey::Pubkey;
+use mundis_network::reliable_sender::ReliableSender;
+use std::net::SocketAddr;
+use std::time::Duration;
+use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::time::{sleep, Instant};
 
 pub type Transaction = Vec<u8>;
 pub type Batch = Vec<Transaction>;
@@ -50,8 +50,8 @@ impl BatchMaker {
                 current_batch_size: 0,
                 network: ReliableSender::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 

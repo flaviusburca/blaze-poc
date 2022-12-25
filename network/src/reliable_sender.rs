@@ -1,19 +1,19 @@
-use std::cmp::min;
-use std::collections::{HashMap, VecDeque};
-use std::net::SocketAddr;
-use std::time::Duration;
+use crate::NetworkError;
 use bytes::Bytes;
 use futures::{SinkExt, StreamExt};
 use log::{info, warn};
 use rand::rngs::SmallRng;
-use rand::SeedableRng;
 use rand::seq::SliceRandom;
+use rand::SeedableRng;
+use std::cmp::min;
+use std::collections::{HashMap, VecDeque};
+use std::net::SocketAddr;
+use std::time::Duration;
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::time::sleep;
 use tokio_util::codec::{Framed, LengthDelimitedCodec};
-use crate::NetworkError;
 
 /// Convenient alias for cancel handlers returned to the caller task.
 pub type CancelHandler = oneshot::Receiver<Bytes>;
@@ -125,8 +125,8 @@ impl Connection {
                 retry_delay: 200,
                 buffer: VecDeque::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 
@@ -177,7 +177,7 @@ impl Connection {
 
     /// Transmit messages once we have established a connection.
     async fn keep_alive(&mut self, stream: TcpStream) -> NetworkError {
-// This buffer keeps all messages and handlers that we have successfully transmitted but for
+        // This buffer keeps all messages and handlers that we have successfully transmitted but for
         // which we are still waiting to receive an ACK.
         let mut pending_replies = VecDeque::new();
 

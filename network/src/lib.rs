@@ -3,8 +3,8 @@ use std::net::SocketAddr;
 use thiserror::Error;
 
 pub mod receiver;
-pub mod simple_sender;
 pub mod reliable_sender;
+pub mod simple_sender;
 
 #[derive(Error, Debug)]
 pub enum NetworkError {

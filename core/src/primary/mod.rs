@@ -1,37 +1,37 @@
-use std::sync::Arc;
-use std::sync::atomic::AtomicU64;
-use std::error::Error;
+use crate::primary::certificate_waiter::CertificateWaiter;
+use crate::primary::garbage_collector::GarbageCollector;
+use crate::primary::header_waiter::{HeaderWaiter, WaiterMessage};
+use crate::primary::helper::Helper;
+use crate::primary::payload_receiver::PayloadReceiver;
+use crate::primary::primary_core::PrimaryCore;
+use crate::primary::proposer::Proposer;
+use crate::primary::synchronizer::Synchronizer;
 use async_trait::async_trait;
 use bytes::Bytes;
 use futures::SinkExt;
 use log::info;
-use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
 use mundis_ledger::Store;
 use mundis_model::certificate::{Certificate, DagError, Header};
 use mundis_model::config::ValidatorConfig;
 use mundis_model::hash::Hash;
 use mundis_model::pubkey::Pubkey;
-use mundis_model::{Round, WorkerId};
 use mundis_model::signature::Signer;
 use mundis_model::vote::Vote;
+use mundis_model::{Round, WorkerId};
 use mundis_network::receiver::{MessageHandler, NetworkReceiver, Writer};
-use crate::primary::certificate_waiter::CertificateWaiter;
-use crate::primary::primary_core::PrimaryCore;
-use crate::primary::garbage_collector::GarbageCollector;
-use crate::primary::header_waiter::{HeaderWaiter, WaiterMessage};
-use crate::primary::helper::Helper;
-use crate::primary::payload_receiver::PayloadReceiver;
-use crate::primary::proposer::Proposer;
-use crate::primary::synchronizer::Synchronizer;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::sync::atomic::AtomicU64;
+use std::sync::Arc;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 
 mod aggregators;
-mod primary_core;
 mod certificate_waiter;
+mod garbage_collector;
 mod header_waiter;
 mod helper;
-mod garbage_collector;
 mod payload_receiver;
+mod primary_core;
 mod proposer;
 mod synchronizer;
 
@@ -64,7 +64,6 @@ pub enum WorkerPrimaryMessage {
     OthersBatch(Hash, WorkerId),
 }
 
-
 /// Defines how the network receiver handles incoming primary messages.
 #[derive(Clone)]
 struct PrimaryReceiverHandler {
@@ -80,23 +79,19 @@ impl MessageHandler for PrimaryReceiverHandler {
 
         // Deserialize and parse the message.
         match bincode::deserialize(&serialized).map_err(DagError::SerializationError)? {
-            PrimaryMessage::CertificatesRequest(missing, requestor) => {
-                self
-                    .tx_cert_requests
-                    .send((missing, requestor))
-                    .await
-                    .expect("Failed to send primary message")
-            },
+            PrimaryMessage::CertificatesRequest(missing, requestor) => self
+                .tx_cert_requests
+                .send((missing, requestor))
+                .await
+                .expect("Failed to send primary message"),
             // PrimaryMessage::Header
             // PrimaryMessage::Vote
             // PrimaryMessage::Certificate
-            primary_message => {
-                self
-                    .tx_primary_messages
-                    .send(primary_message)
-                    .await
-                    .expect("Failed to send certificate")
-            }
+            primary_message => self
+                .tx_primary_messages
+                .send(primary_message)
+                .await
+                .expect("Failed to send certificate"),
         }
         Ok(())
     }
@@ -113,7 +108,8 @@ impl Primary {
     ) -> anyhow::Result<()> {
         info!("Starting primary....");
 
-        let (tx_primary_messages, rx_primary_messages) = channel::<PrimaryMessage>(CHANNEL_CAPACITY);
+        let (tx_primary_messages, rx_primary_messages) =
+            channel::<PrimaryMessage>(CHANNEL_CAPACITY);
         let (tx_cert_requests, rx_cert_requests) = channel::<(Vec<Hash>, Pubkey)>(CHANNEL_CAPACITY);
         let (tx_sync_headers, rx_sync_headers) = channel::<WaiterMessage>(CHANNEL_CAPACITY);
         let (tx_sync_certificates, rx_sync_certificates) = channel::<Certificate>(CHANNEL_CAPACITY);
@@ -121,11 +117,13 @@ impl Primary {
         let (tx_others_digests, rx_others_digests) = channel::<(Hash, WorkerId)>(CHANNEL_CAPACITY);
         let (tx_headers_loopback, rx_headers_loopback) = channel::<Header>(CHANNEL_CAPACITY);
         let (tx_headers, rx_headers) = channel::<Header>(CHANNEL_CAPACITY);
-        let (tx_certificates_loopback, rx_certificates_loopback) = channel::<Certificate>(CHANNEL_CAPACITY);
+        let (tx_certificates_loopback, rx_certificates_loopback) =
+            channel::<Certificate>(CHANNEL_CAPACITY);
         let (tx_parents, rx_parents) = channel::<(Vec<Certificate>, Round)>(CHANNEL_CAPACITY);
 
         // Spawn the network receiver listening to messages from the other primaries.
-        let address = config.initial_committee
+        let address = config
+            .initial_committee
             .primary(&config.identity.pubkey())
             .expect("Our public key or worker id is not in the committee")
             .primary_to_primary;
@@ -139,10 +137,15 @@ impl Primary {
             },
         );
 
-        info!("Primary {} listening to primary messages on {}", config.identity.pubkey(), address);
+        info!(
+            "Primary {} listening to primary messages on {}",
+            config.identity.pubkey(),
+            address
+        );
 
         // Spawn the network receiver listening to messages from our workers.
-        let address = config.initial_committee
+        let address = config
+            .initial_committee
             .primary(&config.identity.pubkey())
             .expect("Our public key or worker id is not in the committee")
             .worker_to_primary;
@@ -185,7 +188,12 @@ impl Primary {
         );
 
         // Keeps track of the latest consensus round and allows other tasks to clean up their their internal state
-        GarbageCollector::spawn(&config.identity.pubkey(), &config.initial_committee, consensus_round.clone(), rx_consensus);
+        GarbageCollector::spawn(
+            &config.identity.pubkey(),
+            &config.initial_committee,
+            consensus_round.clone(),
+            rx_consensus,
+        );
 
         // Receives batch digests from other workers. They are only used to validate headers.
         PayloadReceiver::spawn(store.clone(), /* rx_workers */ rx_others_digests);

@@ -1,13 +1,13 @@
-use std::net::SocketAddr;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use crate::primary::PrimaryWorkerMessage;
 use bytes::Bytes;
-use tokio::sync::mpsc::Receiver;
 use mundis_model::certificate::Certificate;
 use mundis_model::committee::Committee;
 use mundis_model::pubkey::Pubkey;
 use mundis_network::simple_sender::SimpleSender;
-use crate::primary::PrimaryWorkerMessage;
+use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+use tokio::sync::mpsc::Receiver;
 
 /// Receives the highest round reached by consensus and update it for all tasks.
 pub struct GarbageCollector {
@@ -42,8 +42,8 @@ impl GarbageCollector {
                 addresses,
                 network: SimpleSender::new(),
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 
@@ -69,4 +69,3 @@ impl GarbageCollector {
         }
     }
 }
-

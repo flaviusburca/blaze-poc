@@ -1,11 +1,11 @@
+use crate::worker::processor::SerializedBatchMessage;
 use futures::stream::FuturesUnordered;
 use futures::StreamExt as _;
-use tokio::sync::mpsc::{Receiver, Sender};
 use mundis_model::committee::Committee;
 use mundis_model::pubkey::Pubkey;
 use mundis_model::Stake;
 use mundis_network::reliable_sender::CancelHandler;
-use crate::worker::processor::SerializedBatchMessage;
+use tokio::sync::mpsc::{Receiver, Sender};
 
 #[derive(Debug)]
 pub struct QuorumWaiterMessage {
@@ -42,8 +42,8 @@ impl QuorumWaiter {
                 rx_message,
                 tx_batch,
             }
-                .run()
-                .await;
+            .run()
+            .await;
         });
     }
 
