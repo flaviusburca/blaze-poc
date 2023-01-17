@@ -1,8 +1,4 @@
-use std::path::PathBuf;
-
-use clap::*;
-
-use mundis_model::pubkey::Pubkey;
+use {clap::*, mundis_model::pubkey::Pubkey, std::path::PathBuf};
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]

@@ -1,12 +1,16 @@
-use crate::certificate::{DagError, DagResult, Header};
-use crate::committee::Committee;
-use crate::hash::{Hash, Hashable, Hasher};
-use crate::keypair::Keypair;
-use crate::pubkey::Pubkey;
-use crate::signature::{Signature, Signer};
-use crate::Round;
-use serde::{Deserialize, Serialize};
-use std::fmt;
+use {
+    crate::{
+        certificate::{DagError, DagResult, Header},
+        committee::Committee,
+        hash::{Hash, Hashable, Hasher},
+        keypair::Keypair,
+        pubkey::Pubkey,
+        signature::{Signature, Signer},
+        Round,
+    },
+    serde::{Deserialize, Serialize},
+    std::fmt,
+};
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Vote {
@@ -31,7 +35,6 @@ impl Vote {
         let signature = author.sign_message(id.as_ref());
 
         Vote {
-            id,
             signature,
             ..vote
         }

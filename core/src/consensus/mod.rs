@@ -1,13 +1,19 @@
-use itertools::Itertools;
-use log::{debug, info, log_enabled, warn};
-use mundis_model::certificate::Certificate;
-use mundis_model::committee::Committee;
-use mundis_model::hash::{Hash, Hashable};
-use mundis_model::pubkey::Pubkey;
-use mundis_model::{Round, Stake};
-use std::cmp::max;
-use std::collections::{HashMap, HashSet};
-use tokio::sync::mpsc::{Receiver, Sender};
+use {
+    itertools::Itertools,
+    log::{debug, info, log_enabled, warn},
+    mundis_model::{
+        certificate::Certificate,
+        committee::Committee,
+        hash::{Hash, Hashable},
+        pubkey::Pubkey,
+        Round, Stake,
+    },
+    std::{
+        cmp::max,
+        collections::{HashMap, HashSet},
+    },
+    tokio::sync::mpsc::{Receiver, Sender},
+};
 
 /// The representation of the DAG in memory.
 type Dag = HashMap<Round, HashMap<Pubkey, (Hash, Certificate)>>;

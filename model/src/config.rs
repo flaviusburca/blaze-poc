@@ -1,20 +1,13 @@
-use crate::committee::Committee;
-use crate::keypair::Keypair;
-use crate::pubkey::Pubkey;
-use std::collections::BTreeMap;
-use thiserror::Error;
+use {
+    crate::{committee::Committee, keypair::Keypair, pubkey::Pubkey},
+    std::collections::BTreeMap,
+    thiserror::Error,
+};
 
 pub struct ValidatorConfig {
     pub identity: Keypair,
     pub ledger_path: String,
     pub initial_committee: Committee,
-    pub num_workers: u8,
-    // pub protocol_key_pair: Keypair,
-    // pub worker_key_pair: Keypair,
-    // pub account_key_pair: Keypair,
-    // pub network_key_pair: Keypair,
-    // pub network_address: Multiaddr,
-    // pub p2p_config: P2pConfig,
 }
 
 impl Default for ValidatorConfig {
@@ -32,7 +25,6 @@ impl Default for ValidatorConfig {
                 authorities: BTreeMap::default(),
                 epoch: 0,
             },
-            num_workers: 1,
         }
     }
 }

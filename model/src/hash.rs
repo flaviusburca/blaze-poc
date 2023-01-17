@@ -3,13 +3,14 @@
 //! [SHA-256]: https://en.wikipedia.org/wiki/SHA-2
 //! [`Hash`]: struct@Hash
 
-use crate::sanitize::Sanitize;
-use digest::Digest;
-use serde::{Deserialize, Serialize};
-use sha2::Sha256;
-use std::str::FromStr;
-use std::{fmt, mem};
-use thiserror::Error;
+use {
+    crate::sanitize::Sanitize,
+    digest::Digest,
+    serde::{Deserialize, Serialize},
+    sha2::Sha256,
+    std::{fmt, mem, str::FromStr},
+    thiserror::Error,
+};
 
 /// Size of a hash in bytes.
 pub const HASH_BYTES: usize = 32;

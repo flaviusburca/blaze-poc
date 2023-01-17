@@ -1,19 +1,25 @@
-use crate::NetworkError;
-use bytes::Bytes;
-use futures::{SinkExt, StreamExt};
-use log::{info, warn};
-use rand::rngs::SmallRng;
-use rand::seq::SliceRandom;
-use rand::SeedableRng;
-use std::cmp::min;
-use std::collections::{HashMap, VecDeque};
-use std::net::SocketAddr;
-use std::time::Duration;
-use tokio::net::TcpStream;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::sync::oneshot;
-use tokio::time::sleep;
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
+use {
+    crate::NetworkError,
+    bytes::Bytes,
+    futures::{SinkExt, StreamExt},
+    log::{info, warn},
+    rand::{rngs::SmallRng, SeedableRng},
+    std::{
+        cmp::min,
+        collections::{HashMap, VecDeque},
+        net::SocketAddr,
+        time::Duration,
+    },
+    tokio::{
+        net::TcpStream,
+        sync::{
+            mpsc::{channel, Receiver, Sender},
+            oneshot,
+        },
+        time::sleep,
+    },
+    tokio_util::codec::{Framed, LengthDelimitedCodec},
+};
 
 /// Convenient alias for cancel handlers returned to the caller task.
 pub type CancelHandler = oneshot::Receiver<Bytes>;
@@ -100,19 +106,6 @@ impl ReliableSender {
             handlers.push(handler);
         }
         handlers
-    }
-
-    /// Pick a few addresses at random (specified by `nodes`) and send the message only to them.
-    /// It returns a vector of cancel handlers with no specific order.
-    pub async fn lucky_broadcast(
-        &mut self,
-        mut addresses: Vec<SocketAddr>,
-        data: Bytes,
-        nodes: usize,
-    ) -> Vec<CancelHandler> {
-        addresses.shuffle(&mut self.rng);
-        addresses.truncate(nodes);
-        self.broadcast(addresses, data).await
     }
 }
 

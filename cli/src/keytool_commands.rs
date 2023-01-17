@@ -1,18 +1,24 @@
-use anyhow::anyhow;
-use bip39::{Language, Mnemonic, MnemonicType, Seed};
-use colored::{ColoredString, Colorize};
-use log::info;
-use mundis_model::keypair::{
-    generate_seed_from_seed_phrase_and_passphrase, keypair_from_seed,
-    keypair_from_seed_phrase_and_passphrase, read_keypair_file, write_keypair, write_keypair_file,
-    Keypair,
+use {
+    anyhow::anyhow,
+    bip39::{Language, Mnemonic, MnemonicType, Seed},
+    clap::*,
+    colored::Colorize,
+    mundis_model::{
+        keypair::{
+            generate_seed_from_seed_phrase_and_passphrase, keypair_from_seed,
+            keypair_from_seed_phrase_and_passphrase, read_keypair_file, write_keypair,
+            write_keypair_file, Keypair,
+        },
+        pubkey::Pubkey,
+        signature::Signer,
+    },
+    rpassword::prompt_password,
+    std::{
+        io::{stdin, stdout, Write},
+        path::PathBuf,
+        process::exit,
+    },
 };
-use mundis_model::pubkey::Pubkey;
-use mundis_model::signature::Signer;
-use rpassword::prompt_password;
-use std::io::{stdin, stdout, Write};
-use std::path::PathBuf;
-use std::process::exit;
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]

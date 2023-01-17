@@ -1,8 +1,10 @@
-use super::*;
-use crate::worker::common::{batch_digest, committee_with_base_port, keys, listener};
-use mundis_model::signature::Signer;
-use std::fs;
-use tokio::sync::mpsc::channel;
+use {
+    super::*,
+    crate::worker::common::{batch_digest, committee_with_base_port, keys, listener},
+    mundis_model::signature::Signer,
+    std::fs,
+    tokio::sync::mpsc::channel,
+};
 
 #[tokio::test]
 async fn synchronize() {
@@ -19,7 +21,7 @@ async fn synchronize() {
     let store = Store::new(path).unwrap();
 
     // Spawn a `Synchronizer` instance.
-    Synchronizer::spawn(
+    WorkerSynchronizer::spawn(
         authority.pubkey(),
         id,
         committee.clone(),

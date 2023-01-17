@@ -1,22 +1,34 @@
-use crate::primary::{PrimaryMessage, PrimaryWorkerMessage};
-use bytes::Bytes;
-use futures::future::try_join_all;
-use futures::stream::FuturesUnordered;
-use futures::stream::StreamExt as _;
-use log::{debug, error};
-use mundis_ledger::Store;
-use mundis_model::certificate::{DagError, DagResult, Header};
-use mundis_model::committee::Committee;
-use mundis_model::hash::Hash;
-use mundis_model::pubkey::Pubkey;
-use mundis_model::{Round, WorkerId};
-use mundis_network::simple_sender::SimpleSender;
-use std::collections::HashMap;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::time::{sleep, Instant};
+use {
+    crate::primary::{PrimaryMessage, PrimaryWorkerMessage},
+    bytes::Bytes,
+    futures::{
+        future::try_join_all,
+        stream::{FuturesUnordered, StreamExt as _},
+    },
+    log::{debug, error},
+    mundis_ledger::Store,
+    mundis_model::{
+        certificate::{DagError, DagResult, Header},
+        committee::Committee,
+        hash::Hash,
+        pubkey::Pubkey,
+        Round, WorkerId,
+    },
+    mundis_network::simple_sender::SimpleSender,
+    std::{
+        collections::HashMap,
+        sync::{
+            atomic::{AtomicU64, Ordering},
+            Arc,
+        },
+        time::{Duration, SystemTime, UNIX_EPOCH},
+    },
+    tokio::{
+        sync::mpsc::{channel, Receiver, Sender},
+        time::{sleep, Instant},
+    },
+    log::info
+};
 
 /// The resolution of the timer that checks whether we received replies to our sync requests, and triggers
 /// new sync requests if we didn't.
@@ -128,7 +140,7 @@ impl HeaderWaiter {
                 Some(message) = self.rx_synchronizer.recv() => {
                     match message {
                         WaiterMessage::SyncBatches(missing, header) => {
-                            debug!("Synching the payload of {}", header);
+                            info!("Synching the payload of {}", header);
                             let header_id = header.id.clone();
                             let round = header.round;
                             let author = header.author;
@@ -168,12 +180,14 @@ impl HeaderWaiter {
                                 let message = PrimaryWorkerMessage::Synchronize(digests, author);
                                 let bytes = bincode::serialize(&message)
                                     .expect("Failed to serialize batch sync request");
+
+                                info!("SIMPLE SEND PrimaryWorkerMessage::Synchronize");
                                 self.network.send(address, Bytes::from(bytes)).await;
                             }
                         },
 
                         WaiterMessage::SyncParents(missing, header) => {
-                            debug!("Synching the parents of {}", header);
+                            info!("Synching the parents of {}", header);
                             let header_id = header.id.clone();
                             let round = header.round;
                             let author = header.author;
@@ -211,11 +225,12 @@ impl HeaderWaiter {
                             }
                             if !requires_sync.is_empty() {
                                 let address = self.committee
-                                    .primary(&author)
+                                    .primary_address(&author)
                                     .expect("Author of valid header not in the committee")
                                     .primary_to_primary;
                                 let message = PrimaryMessage::CertificatesRequest(requires_sync, self.authority);
                                 let bytes = bincode::serialize(&message).expect("Failed to serialize cert request");
+                                info!("SIMPLE SEND PrimaryWorkerMessage::CertificatesRequest");
                                 self.network.send(address, Bytes::from(bytes)).await;
                             }
                         }
@@ -259,14 +274,17 @@ impl HeaderWaiter {
                         }
                     }
 
-                    let addresses = self.committee
-                        .others_primaries(&self.authority)
-                        .iter()
-                        .map(|(_, x)| x.primary_to_primary)
-                        .collect();
-                    let message = PrimaryMessage::CertificatesRequest(retry, self.authority);
-                    let bytes = bincode::serialize(&message).expect("Failed to serialize cert request");
-                    self.network.lucky_broadcast(addresses, Bytes::from(bytes), self.sync_retry_nodes).await;
+                    if !retry.is_empty() {
+                        let addresses = self.committee
+                            .others_primary_addresses(&self.authority)
+                            .iter()
+                            .map(|(_, x)| x.primary_to_primary)
+                            .collect();
+                        info!("LUCKY BROADCAST PrimaryMessage::CertificatesRequest for {:?}", retry);
+                        let message = PrimaryMessage::CertificatesRequest(retry, self.authority);
+                        let bytes = bincode::serialize(&message).expect("Failed to serialize cert request");
+                        self.network.lucky_broadcast(addresses, Bytes::from(bytes), self.sync_retry_nodes).await;
+                    }
 
                     // Reschedule the timer.
                     timer.as_mut().reset(Instant::now() + Duration::from_millis(TIMER_RESOLUTION));

@@ -1,33 +1,44 @@
-use crate::primary::aggregators::{CertificatesAggregator, VotesAggregator};
-use crate::primary::synchronizer::Synchronizer;
-use crate::primary::PrimaryMessage;
-use async_recursion::async_recursion;
-use bytes::Bytes;
-use log::{debug, error, warn};
-use mundis_ledger::Store;
-use mundis_model::certificate::{Certificate, DagError, DagResult, Header};
-use mundis_model::committee::Committee;
-use mundis_model::hash::{Hash, Hashable};
-use mundis_model::keypair::Keypair;
-use mundis_model::pubkey::Pubkey;
-use mundis_model::signature::Signer;
-use mundis_model::vote::Vote;
-use mundis_model::Round;
-use mundis_network::reliable_sender::{CancelHandler, ReliableSender};
-use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use tokio::sync::mpsc::{Receiver, Sender};
+use log::info;
+use {
+    crate::primary::{
+        aggregators::{CertificatesAggregator, VotesAggregator},
+        primary_synchronizer::PrimarySynchronizer,
+        PrimaryMessage,
+    },
+    async_recursion::async_recursion,
+    bytes::Bytes,
+    log::{debug, error, warn},
+    mundis_ledger::Store,
+    mundis_model::{
+        certificate::{Certificate, DagError, DagResult, Header},
+        committee::Committee,
+        hash::{Hash, Hashable},
+        keypair::Keypair,
+        pubkey::Pubkey,
+        signature::Signer,
+        vote::Vote,
+        Round,
+    },
+    mundis_network::reliable_sender::{CancelHandler, ReliableSender},
+    std::{
+        collections::{HashMap, HashSet},
+        sync::{
+            atomic::{AtomicU64, Ordering},
+            Arc,
+        },
+    },
+    tokio::sync::mpsc::{Receiver, Sender},
+};
 
 pub struct PrimaryCore {
-    /// The public key of this primary.
+    /// The keypair of this primary.
     authority: Keypair,
     /// The committee information.
     committee: Committee,
     /// The persistent storage.
     store: Store,
     /// Handles synchronization with other nodes and our workers.
-    synchronizer: Synchronizer,
+    synchronizer: PrimarySynchronizer,
     /// The current consensus round (used for cleanup).
     consensus_round: Arc<AtomicU64>,
     /// The depth of the garbage collector.
@@ -69,7 +80,7 @@ impl PrimaryCore {
         authority: Keypair,
         committee: Committee,
         store: Store,
-        synchronizer: Synchronizer,
+        synchronizer: PrimarySynchronizer,
         consensus_round: Arc<AtomicU64>,
         gc_depth: Round,
         rx_primaries: Receiver<PrimaryMessage>,
@@ -282,12 +293,13 @@ impl PrimaryCore {
             // Broadcast the certificate.
             let addresses = self
                 .committee
-                .others_primaries(&self.authority.pubkey())
+                .others_primary_addresses(&self.authority.pubkey())
                 .iter()
                 .map(|(_, x)| x.primary_to_primary)
                 .collect();
             let bytes = bincode::serialize(&PrimaryMessage::Certificate(certificate.clone()))
                 .expect("Failed to serialize our own certificate");
+            info!("RELIABLE BROADCAST PrimaryMessage::Certificate");
             let handlers = self.network.broadcast(addresses, Bytes::from(bytes)).await;
             self.cancel_handlers
                 .entry(certificate.round())
@@ -353,7 +365,7 @@ impl PrimaryCore {
         {
             // Make a vote and send it to the header's creator.
             let vote = Vote::new(header, &self.authority).await;
-            debug!("Created {:?}", vote);
+            info!("Created vote: {:?}", vote);
             if vote.origin == self.authority.pubkey() {
                 self.process_vote(vote)
                     .await
@@ -361,9 +373,10 @@ impl PrimaryCore {
             } else {
                 let address = self
                     .committee
-                    .primary(&header.author)
+                    .primary_address(&header.author)
                     .expect("Author of valid header is not in the committee")
                     .primary_to_primary;
+                info!("RELIABLE SEND PrimaryMessage::Vote for header={}, round={}", vote.id, vote.round);
                 let bytes = bincode::serialize(&PrimaryMessage::Vote(vote))
                     .expect("Failed to serialize our own vote");
                 let handler = self.network.send(address, Bytes::from(bytes)).await;
@@ -384,12 +397,13 @@ impl PrimaryCore {
         // Broadcast the new header in a reliable manner.
         let addresses = self
             .committee
-            .others_primaries(&self.authority.pubkey())
+            .others_primary_addresses(&self.authority.pubkey())
             .iter()
             .map(|(_, x)| x.primary_to_primary)
             .collect();
         let bytes = bincode::serialize(&PrimaryMessage::Header(header.clone()))
             .expect("Failed to serialize our own header");
+        info!("RELIABLE BROADCAST PrimaryMessage::Header with id={}, round={}", header.id, header.round);
         let handlers = self.network.broadcast(addresses, Bytes::from(bytes)).await;
         self.cancel_handlers
             .entry(header.round)

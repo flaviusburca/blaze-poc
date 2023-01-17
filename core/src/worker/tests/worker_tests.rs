@@ -1,9 +1,13 @@
-use super::*;
-use crate::primary::WorkerPrimaryMessage;
-use crate::worker::common::{batch_digest, committee_with_base_port, keys, listener, transaction};
-use mundis_model::signature::Signer;
-use mundis_network::simple_sender::SimpleSender;
-use std::fs;
+use {
+    super::*,
+    crate::{
+        primary::WorkerPrimaryMessage,
+        worker::common::{batch_digest, committee_with_base_port, keys, listener, transaction},
+    },
+    mundis_model::signature::Signer,
+    mundis_network::simple_sender::SimpleSender,
+    std::fs,
+};
 
 #[tokio::test]
 async fn handle_clients_transactions() {
@@ -21,7 +25,7 @@ async fn handle_clients_transactions() {
 
     // Spawn a network listener to receive our batch's digest.
     let primary_address = committee
-        .primary(&authority.pubkey())
+        .primary_address(&authority.pubkey())
         .unwrap()
         .worker_to_primary;
     let expected = bincode::serialize(&WorkerPrimaryMessage::OurBatch(batch_digest(), id)).unwrap();

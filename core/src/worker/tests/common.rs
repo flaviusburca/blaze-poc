@@ -1,19 +1,21 @@
-use crate::worker::batch_maker::{Batch, Transaction};
-use crate::worker::WorkerMessage;
-use bytes::Bytes;
-use futures::{SinkExt, StreamExt};
-use mundis_model::committee::{
-    Authority, Committee, ExecutorAddresses, PrimaryAddresses, WorkerAddresses,
+use {
+    crate::worker::{
+        batch_maker::{Batch, Transaction},
+        WorkerMessage,
+    },
+    bytes::Bytes,
+    futures::{SinkExt, StreamExt},
+    mundis_model::{
+        committee::{Authority, Committee, ExecutorAddresses, PrimaryAddresses, WorkerAddresses},
+        hash::{Hash, Hasher},
+        keypair::Keypair,
+        signature::Signer,
+    },
+    rand::{rngs::StdRng, SeedableRng},
+    std::net::SocketAddr,
+    tokio::{net::TcpListener, task::JoinHandle},
+    tokio_util::codec::{Framed, LengthDelimitedCodec},
 };
-use mundis_model::hash::{Hash, Hasher};
-use mundis_model::keypair::Keypair;
-use mundis_model::signature::Signer;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
-use tokio::task::JoinHandle;
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 pub fn keys() -> Vec<Keypair> {
     let mut rng = StdRng::from_seed([0; 32]);

@@ -1,12 +1,15 @@
-use crate::worker::quorum_waiter::QuorumWaiterMessage;
-use crate::worker::WorkerMessage;
-use bytes::Bytes;
-use mundis_model::pubkey::Pubkey;
-use mundis_network::reliable_sender::ReliableSender;
-use std::net::SocketAddr;
-use std::time::Duration;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{sleep, Instant};
+use log::info;
+use {
+    crate::worker::{quorum_waiter::QuorumWaiterMessage, WorkerMessage},
+    bytes::Bytes,
+    mundis_model::pubkey::Pubkey,
+    mundis_network::reliable_sender::ReliableSender,
+    std::{net::SocketAddr, time::Duration},
+    tokio::{
+        sync::mpsc::{Receiver, Sender},
+        time::{sleep, Instant},
+    },
+};
 
 pub type Transaction = Vec<u8>;
 pub type Batch = Vec<Transaction>;
@@ -97,6 +100,7 @@ impl BatchMaker {
         // Broadcast the batch through the network.
         let (names, addresses): (Vec<_>, _) = self.workers_addresses.iter().cloned().unzip();
         let bytes = Bytes::from(serialized.clone());
+        info!("RELIABLE BROADCAST WorkerMessage::Batch");
         let handlers = self.network.broadcast(addresses, bytes).await;
 
         // Send the batch through the deliver channel for further processing.

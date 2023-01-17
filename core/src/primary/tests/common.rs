@@ -1,21 +1,20 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use bytes::Bytes;
-use futures::sink::SinkExt as _;
-use futures::stream::StreamExt as _;
-use mundis_model::certificate::{Certificate, Header};
-use mundis_model::committee::{
-    Authority, Committee, ExecutorAddresses, PrimaryAddresses, WorkerAddresses,
+use {
+    futures::{sink::SinkExt as _, stream::StreamExt as _},
+    mundis_model::{
+        certificate::{Certificate, Header},
+        committee::{Authority, Committee, ExecutorAddresses, PrimaryAddresses, WorkerAddresses},
+        hash::Hashable,
+        keypair::Keypair,
+        signature::{Signature, Signer},
+        vote::Vote,
+    },
+    rand::{rngs::StdRng, SeedableRng as _},
+    std::net::SocketAddr,
+    tokio::{net::TcpListener, task::JoinHandle},
+    tokio_util::codec::{Framed, LengthDelimitedCodec},
 };
-use mundis_model::hash::Hashable;
-use mundis_model::keypair::Keypair;
-use mundis_model::signature::{Signature, Signer};
-use mundis_model::vote::Vote;
-use rand::rngs::StdRng;
-use rand::SeedableRng as _;
-use std::net::SocketAddr;
-use tokio::net::TcpListener;
-use tokio::task::JoinHandle;
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
 
 pub fn keys() -> Vec<Keypair> {
     let mut rng = StdRng::from_seed([0; 32]);

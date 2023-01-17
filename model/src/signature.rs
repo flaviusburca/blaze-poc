@@ -1,15 +1,16 @@
-use crate::hash::Hash;
-use crate::keypair::Keypair;
-use crate::pubkey::Pubkey;
-use ed25519_dalek::SignatureError;
-use generic_array::typenum::U64;
-use generic_array::GenericArray;
-use itertools::Itertools;
-use serde::{Deserialize, Serialize};
-use std::borrow::{Borrow, Cow};
-use std::str::FromStr;
-use std::{fmt, mem};
-use thiserror::Error;
+use {
+    crate::{hash::Hash, keypair::Keypair, pubkey::Pubkey},
+    ed25519_dalek::SignatureError,
+    generic_array::{typenum::U64, GenericArray},
+    itertools::Itertools,
+    serde::{Deserialize, Serialize},
+    std::{
+        borrow::{Borrow, Cow},
+        fmt, mem,
+        str::FromStr,
+    },
+    thiserror::Error,
+};
 
 /// Number of bytes in a signature
 pub const SIGNATURE_BYTES: usize = 64;
@@ -207,11 +208,14 @@ pub fn unique_signers(signers: Vec<&dyn Signer>) -> Vec<&dyn Signer> {
 
 #[cfg(test)]
 mod tests {
-    use crate::hash::Hashable;
-    use crate::keypair::Keypair;
-    use crate::signature::{Signature, Signer};
-    use rand::rngs::StdRng;
-    use rand::SeedableRng;
+    use {
+        crate::{
+            hash::Hashable,
+            keypair::Keypair,
+            signature::{Signature, Signer},
+        },
+        rand::{rngs::StdRng, SeedableRng},
+    };
 
     pub fn keys() -> Vec<Keypair> {
         let mut rng = StdRng::from_seed([0; 32]);

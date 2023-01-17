@@ -1,20 +1,24 @@
-use crate::executor::executor_core::ExecutorCoreMessage;
-use crate::worker::WorkerMessage;
-use bytes::Bytes;
-use futures::stream::FuturesOrdered;
-use futures::StreamExt as _;
-use log::debug;
-use mundis_ledger::{Store, StoreError};
-use mundis_model::certificate::Certificate;
-use mundis_model::committee::Committee;
-use mundis_model::hash::{Hash, Hasher};
-use mundis_model::pubkey::Pubkey;
-use mundis_model::WorkerId;
-use mundis_network::simple_sender::SimpleSender;
-use std::collections::HashMap;
-use std::time::Duration;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{sleep, Instant};
+use log::info;
+use {
+    crate::{executor::executor_core::ExecutorCoreMessage, worker::WorkerMessage},
+    bytes::Bytes,
+    futures::{stream::FuturesOrdered, StreamExt as _},
+    log::debug,
+    mundis_ledger::{Store, StoreError},
+    mundis_model::{
+        certificate::Certificate,
+        committee::Committee,
+        hash::{Hash, Hasher},
+        pubkey::Pubkey,
+        WorkerId,
+    },
+    mundis_network::simple_sender::SimpleSender,
+    std::{collections::HashMap, time::Duration},
+    tokio::{
+        sync::mpsc::{Receiver, Sender},
+        time::{sleep, Instant},
+    },
+};
 
 /// The resolution of the timer that checks whether we received replies to our batch requests,
 /// and triggers new batch requests if we didn't.
@@ -170,6 +174,8 @@ impl BatchLoader {
             let message = WorkerMessage::ExecutorRequest(digests, self.authority);
             let serialized =
                 bincode::serialize(&message).expect("(Failed to serialize executor message");
+
+            info!("SIMPLE SEND WorkerMessage::ExecutorRequest");
             self.network.send(address, Bytes::from(serialized)).await;
         }
     }

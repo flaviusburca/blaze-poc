@@ -1,5 +1,7 @@
-use crate::pubkey::Pubkey;
-use serde::{Deserialize, Serialize};
+use {
+    crate::pubkey::Pubkey,
+    serde::{Deserialize, Serialize},
+};
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Default)]
 pub struct Account {

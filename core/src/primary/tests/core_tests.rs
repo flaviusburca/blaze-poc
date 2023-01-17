@@ -1,11 +1,13 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use super::*;
-use crate::primary::common::{
-    certificate, committee, committee_with_base_port, header, headers, keys, listener, votes,
+use {
+    crate::primary::common::{
+        certificate, committee, committee_with_base_port, header, headers, keys, listener, votes,
+    },
+    futures::future::try_join_all,
+    std::fs,
+    tokio::sync::mpsc::channel,
 };
-use futures::future::try_join_all;
-use std::fs;
-use tokio::sync::mpsc::channel;
 
 #[tokio::test]
 async fn process_header() {
@@ -34,13 +36,13 @@ async fn process_header() {
 
     // Spawn a listener to receive the vote.
     let address = committee
-        .primary(&header().author)
+        .primary_address(&header().author)
         .unwrap()
         .primary_to_primary;
     let handle = listener(address);
 
     // Make a synchronizer for the core.
-    let synchronizer = Synchronizer::new(
+    let synchronizer = PrimarySynchronizer::new(
         keypair.pubkey(),
         &committee,
         store.clone(),
@@ -107,7 +109,7 @@ async fn process_header_missing_parent() {
     let mut store = Store::new(path).unwrap();
 
     // Make a synchronizer for the core.
-    let synchronizer = Synchronizer::new(
+    let synchronizer = PrimarySynchronizer::new(
         keypair.pubkey(),
         &committee(),
         store.clone(),
@@ -165,7 +167,7 @@ async fn process_header_missing_payload() {
     let mut store = Store::new(path).unwrap();
 
     // Make a synchronizer for the core.
-    let synchronizer = Synchronizer::new(
+    let synchronizer = PrimarySynchronizer::new(
         keypair.pubkey(),
         &committee(),
         store.clone(),
@@ -225,7 +227,7 @@ async fn process_votes() {
     let store = Store::new(path).unwrap();
 
     // Make a synchronizer for the core.
-    let synchronizer = Synchronizer::new(
+    let synchronizer = PrimarySynchronizer::new(
         keypair.pubkey(),
         &committee,
         store.clone(),
@@ -254,7 +256,7 @@ async fn process_votes() {
 
     // Spawn all listeners to receive our newly formed certificate.
     let handles: Vec<_> = committee
-        .others_primaries(&keypair.pubkey())
+        .others_primary_addresses(&keypair.pubkey())
         .iter()
         .map(|(_, address)| listener(address.primary_to_primary))
         .collect();
@@ -296,7 +298,7 @@ async fn process_certificates() {
     let mut store = Store::new(path).unwrap();
 
     // Make a synchronizer for the core.
-    let synchronizer = Synchronizer::new(
+    let synchronizer = PrimarySynchronizer::new(
         keypair.pubkey(),
         &committee(),
         store.clone(),

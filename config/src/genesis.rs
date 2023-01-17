@@ -1,9 +1,15 @@
-use mundis_model::account::Account;
-use mundis_model::base_types::{ChainId, UnixTimestamp, CHAIN_LOCAL};
-use mundis_model::pubkey::Pubkey;
-use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-use std::time::{SystemTime, UNIX_EPOCH};
+use {
+    mundis_model::{
+        account::Account,
+        base_types::{ChainId, UnixTimestamp, CHAIN_LOCAL},
+        pubkey::Pubkey,
+    },
+    serde::{Deserialize, Serialize},
+    std::{
+        collections::BTreeMap,
+        time::{SystemTime, UNIX_EPOCH},
+    },
+};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct GenesisConfig {

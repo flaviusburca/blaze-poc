@@ -1,14 +1,16 @@
-use serde::{Deserialize, Serialize};
-use std::str::FromStr;
-use std::{fmt, mem};
-use thiserror::Error;
+use serde::Deserializer;
+use {
+    serde::{Deserialize, Serialize},
+    std::{fmt, mem, str::FromStr},
+    thiserror::Error,
+};
 
 /// Number of bytes in a pubkey
 pub const PUBKEY_BYTES: usize = 32;
 /// Maximum string length of a base58 encoded pubkey
 const MAX_BASE58_LEN: usize = 44;
 
-#[derive(Default, Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[derive(Default, Clone, Copy, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Pubkey(pub(crate) [u8; 32]);
 
 impl Pubkey {
@@ -43,6 +45,27 @@ impl fmt::Debug for Pubkey {
 impl fmt::Display for Pubkey {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", bs58::encode(self.0).into_string())
+    }
+}
+
+impl Serialize for Pubkey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(&bs58::encode(self.0).into_string())
+    }
+}
+
+
+impl<'de> Deserialize<'de> for Pubkey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'de>,
+    {
+        let s = String::deserialize(deserializer)?;
+        let pubkey = s.parse::<Pubkey>().expect("Could not parse Pubkey");
+        Ok(pubkey)
     }
 }
 

@@ -1,30 +1,33 @@
-use crate::primary::PrimaryWorkerMessage;
-use crate::worker::batch_maker::{Batch, BatchMaker, Transaction};
-use crate::worker::helper::{ExecutorHelper, Helper};
-use crate::worker::primary_connector::PrimaryConnector;
-use crate::worker::processor::{SerializedBatchMessage, WorkerProcessor};
-use crate::worker::quorum_waiter::{QuorumWaiter, QuorumWaiterMessage};
-use crate::worker::synchronizer::Synchronizer;
-use async_trait::async_trait;
-use bytes::Bytes;
-use futures::SinkExt as _;
-use log::{error, info, warn};
-use mundis_ledger::Store;
-use mundis_model::committee::Committee;
-use mundis_model::hash::Hash;
-use mundis_model::pubkey::Pubkey;
-use mundis_model::WorkerId;
-use mundis_network::receiver::{MessageHandler, NetworkReceiver, Writer};
-use serde::{Deserialize, Serialize};
-use std::error::Error;
-use tokio::sync::mpsc::{channel, Sender};
+use {
+    crate::{
+        primary::PrimaryWorkerMessage,
+        worker::{
+            batch_maker::{Batch, BatchMaker, Transaction},
+            worker_helper::{ExecutorHelper, WorkerHelper},
+            primary_connector::PrimaryConnector,
+            processor::{SerializedBatchMessage, WorkerProcessor},
+            quorum_waiter::{QuorumWaiter, QuorumWaiterMessage},
+            worker_synchronizer::WorkerSynchronizer,
+        },
+    },
+    async_trait::async_trait,
+    bytes::Bytes,
+    futures::SinkExt as _,
+    log::{error, info, warn},
+    mundis_ledger::Store,
+    mundis_model::{committee::Committee, hash::Hash, pubkey::Pubkey, WorkerId},
+    mundis_network::receiver::{MessageHandler, NetworkReceiver, Writer},
+    serde::{Deserialize, Serialize},
+    std::error::Error,
+    tokio::sync::mpsc::{channel, Sender},
+};
 
 mod batch_maker;
-mod helper;
+mod worker_helper;
 mod primary_connector;
 mod processor;
 mod quorum_waiter;
-mod synchronizer;
+mod worker_synchronizer;
 
 /// The default channel capacity for each channel of the worker.
 pub const CHANNEL_CAPACITY: usize = 1_000;
@@ -76,7 +79,7 @@ impl Worker {
         PrimaryConnector::spawn(
             worker
                 .committee
-                .primary(&worker.authority)
+                .primary_address(&worker.authority)
                 .expect("Our public key is not in the committee")
                 .worker_to_primary,
             rx_primary,
@@ -102,10 +105,9 @@ impl Worker {
             /* handler */
             PrimaryReceiverHandler { tx_synchronizer },
         );
-
         // The `Synchronizer` is responsible to keep the worker in sync with the others. It handles the commands
         // it receives from the primary (which are mainly notifications that we are out of sync).
-        Synchronizer::spawn(
+        WorkerSynchronizer::spawn(
             self.authority,
             self.id,
             self.committee.clone(),
@@ -198,7 +200,7 @@ impl Worker {
         );
 
         // The `Helper` is dedicated to reply to batch requests from other workers.
-        Helper::spawn(
+        WorkerHelper::spawn(
             self.id,
             self.committee.clone(),
             self.store.clone(),

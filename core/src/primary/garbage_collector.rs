@@ -1,13 +1,18 @@
-use crate::primary::PrimaryWorkerMessage;
-use bytes::Bytes;
-use mundis_model::certificate::Certificate;
-use mundis_model::committee::Committee;
-use mundis_model::pubkey::Pubkey;
-use mundis_network::simple_sender::SimpleSender;
-use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Arc;
-use tokio::sync::mpsc::Receiver;
+use log::info;
+use {
+    crate::primary::PrimaryWorkerMessage,
+    bytes::Bytes,
+    mundis_model::{certificate::Certificate, committee::Committee, pubkey::Pubkey},
+    mundis_network::simple_sender::SimpleSender,
+    std::{
+        net::SocketAddr,
+        sync::{
+            atomic::{AtomicU64, Ordering},
+            Arc,
+        },
+    },
+    tokio::sync::mpsc::Receiver,
+};
 
 /// Receives the highest round reached by consensus and update it for all tasks.
 pub struct GarbageCollector {
@@ -62,6 +67,8 @@ impl GarbageCollector {
                 // Trigger cleanup on the workers..
                 let bytes = bincode::serialize(&PrimaryWorkerMessage::Cleanup(round))
                     .expect("Failed to serialize our own message");
+
+                info!("BROADCAST PrimaryWorkerMessage::Cleanup");
                 self.network
                     .broadcast(self.addresses.clone(), Bytes::from(bytes))
                     .await;

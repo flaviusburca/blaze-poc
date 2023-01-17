@@ -1,6 +1,7 @@
-use crate::account::Account;
-use crate::hash::Hash;
-use serde::{Deserialize, Serialize};
+use {
+    crate::{account::Account, hash::Hash},
+    serde::{Deserialize, Serialize},
+};
 
 /// A transaction updating or creating objects.
 #[derive(Serialize, Deserialize, Debug)]

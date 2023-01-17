@@ -1,15 +1,19 @@
-use anyhow::anyhow;
-use ed25519_dalek::Signer as DalekSigner;
-use hmac::Hmac;
-use rand::rngs::OsRng;
-use rand::{CryptoRng, RngCore};
-use std::fs;
-use std::fs::{File, OpenOptions};
-use std::io::{Read, Write};
-use std::path::Path;
-
-use crate::pubkey::Pubkey;
-use crate::signature::{Signature, Signer, SignerError};
+use {
+    crate::{
+        pubkey::Pubkey,
+        signature::{Signature, Signer, SignerError},
+    },
+    anyhow::anyhow,
+    ed25519_dalek::Signer as DalekSigner,
+    hmac::Hmac,
+    rand::{rngs::OsRng, CryptoRng, RngCore},
+    std::{
+        fs,
+        fs::{File, OpenOptions},
+        io::{Read, Write},
+        path::Path,
+    },
+};
 
 /// A plain, vanilla Ed25519 key pair
 pub struct Keypair(ed25519_dalek::Keypair);

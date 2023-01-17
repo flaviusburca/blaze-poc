@@ -1,8 +1,4 @@
-use anyhow::Result;
-use clap::Parser;
-use colored::Colorize;
-
-use mundis_cli::main_commands::MundisCommand;
+use {clap::Parser, colored::Colorize, mundis_cli::main_commands::MundisCommand};
 
 #[tokio::main]
 async fn main() {

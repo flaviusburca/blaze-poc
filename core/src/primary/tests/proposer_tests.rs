@@ -1,7 +1,9 @@
-use super::*;
-use crate::primary::common::{committee, keys};
-use mundis_model::signature::Signer;
-use tokio::sync::mpsc::channel;
+use {
+    super::*,
+    crate::primary::common::{committee, keys},
+    mundis_model::signature::Signer,
+    tokio::sync::mpsc::channel,
+};
 
 #[tokio::test]
 async fn propose_empty() {

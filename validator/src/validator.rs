@@ -23,7 +23,7 @@ impl Validator {
         let (tx_new_certificates, rx_new_certificates) = channel::<Certificate>(CHANNEL_CAPACITY);
         let (tx_feedback, rx_feedback) = channel::<Certificate>(CHANNEL_CAPACITY);
 
-        let primary_store_path = format!("{}_primary", config.ledger_path);
+        let primary_store_path = format!("{}/primary", config.ledger_path);
         let primary_store =
             Store::new(&primary_store_path).context("Could not create the primary ledger store")?;
 
@@ -37,7 +37,7 @@ impl Validator {
             tx_output,
         );
 
-        let executor_store_path = format!("{}_executor", config.ledger_path);
+        let executor_store_path = format!("{}/executor", config.ledger_path);
         let executor_store = Store::new(&executor_store_path)
             .context("Could not create the primary ledger store")?;
 
@@ -48,8 +48,9 @@ impl Validator {
             rx_output,
         )?;
 
-        for i in 0..config.num_workers {
-            let worker_store_path = format!("{}_worker_{}", config.ledger_path, i);
+        let workers = config.initial_committee.our_workers(&config.identity.pubkey())?;
+        for i in 0..workers.len() {
+            let worker_store_path = format!("{}/worker_{}", config.ledger_path, i);
             let worker_store = Store::new(&worker_store_path).context(format!(
                 "Could not create worker ledger store for worker {}",
                 i

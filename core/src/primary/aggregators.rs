@@ -1,10 +1,14 @@
-use mundis_model::certificate::{Certificate, DagError, DagResult, Header};
-use mundis_model::committee::Committee;
-use mundis_model::pubkey::Pubkey;
-use mundis_model::signature::Signature;
-use mundis_model::vote::Vote;
-use mundis_model::Stake;
-use std::collections::HashSet;
+use {
+    mundis_model::{
+        certificate::{Certificate, DagError, DagResult, Header},
+        committee::Committee,
+        pubkey::Pubkey,
+        signature::Signature,
+        vote::Vote,
+        Stake,
+    },
+    std::collections::HashSet,
+};
 
 /// Aggregates votes for a particular header into a certificate.
 pub struct VotesAggregator {

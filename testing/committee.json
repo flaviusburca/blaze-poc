@@ -1,0 +1,39 @@
+{
+  "authorities": {
+    "4BFDbbzhg6eotPxYJaeiGJmbA57Zc83jH4v5Qt8Wj2cw": {
+      "stake": 1,
+      "primary": {
+        "primary_to_primary": "127.0.0.1:3015",
+        "worker_to_primary": "127.0.0.1:3016"
+      },
+      "workers": {
+        "0": {
+          "primary_to_worker": "127.0.0.1:3017",
+          "transactions": "127.0.0.1:3018",
+          "worker_to_worker": "127.0.0.1:3019"
+        }
+      },
+      "executor": {
+        "worker_to_executor": "127.0.0.1:3029"
+      }
+    },
+    "C9v6wuB6kTfHxEXyYR1MACVZ4nXdZtQGJqSyScTL9MnN": {
+      "stake": 1,
+      "primary": {
+        "primary_to_primary": "127.0.0.1:4015",
+        "worker_to_primary": "127.0.0.1:4016"
+      },
+      "workers": {
+        "0": {
+          "primary_to_worker": "127.0.0.1:4017",
+          "transactions": "127.0.0.1:4018",
+          "worker_to_worker": "127.0.0.1:4019"
+        }
+      },
+      "executor": {
+        "worker_to_executor": "127.0.0.1:4029"
+      }
+    }
+  },
+  "epoch": 0
+}

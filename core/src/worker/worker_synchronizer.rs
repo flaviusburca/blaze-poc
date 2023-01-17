@@ -1,25 +1,27 @@
-use crate::primary::PrimaryWorkerMessage;
-use crate::worker::WorkerMessage;
-use bytes::Bytes;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt as _;
-use log::{debug, error};
-use mundis_ledger::{Store, StoreError};
-use mundis_model::committee::Committee;
-use mundis_model::hash::Hash;
-use mundis_model::pubkey::Pubkey;
-use mundis_model::{Round, WorkerId};
-use mundis_network::simple_sender::SimpleSender;
-use std::collections::HashMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::time::{sleep, Instant};
+use {
+    crate::{primary::PrimaryWorkerMessage, worker::WorkerMessage},
+    bytes::Bytes,
+    futures::{stream::FuturesUnordered, StreamExt as _},
+    log::{debug, error},
+    mundis_ledger::{Store, StoreError},
+    mundis_model::{committee::Committee, hash::Hash, pubkey::Pubkey, Round, WorkerId},
+    mundis_network::simple_sender::SimpleSender,
+    std::{
+        collections::HashMap,
+        time::{Duration, SystemTime, UNIX_EPOCH},
+    },
+    tokio::{
+        sync::mpsc::{channel, Receiver, Sender},
+        time::{sleep, Instant},
+    },
+    log::info
+};
 
 /// Resolution of the timer managing retrials of sync requests (in ms).
 const TIMER_RESOLUTION: u64 = 1_000;
 
 // The `Synchronizer` is responsible to keep the worker in sync with the others.
-pub struct Synchronizer {
+pub struct WorkerSynchronizer {
     /// The public key of this authority.
     authority: Pubkey,
     /// The id of this worker.
@@ -47,7 +49,7 @@ pub struct Synchronizer {
     pending: HashMap<Hash, (Round, Sender<()>, u128)>,
 }
 
-impl Synchronizer {
+impl WorkerSynchronizer {
     pub fn spawn(
         authority: Pubkey,
         id: WorkerId,
@@ -135,6 +137,7 @@ impl Synchronizer {
                         };
                         let message = WorkerMessage::BatchRequest(missing, self.authority);
                         let serialized = bincode::serialize(&message).expect("Failed to serialize our own message");
+                        info!("SIMPLE SEND WorkerMessage::BatchRequest");
                         self.network.send(address, Bytes::from(serialized)).await;
                     },
                     PrimaryWorkerMessage::Cleanup(round) => {
@@ -192,6 +195,7 @@ impl Synchronizer {
                             .collect();
                         let message = WorkerMessage::BatchRequest(retry, self.authority);
                         let serialized = bincode::serialize(&message).expect("Failed to serialize our own message");
+                        info!("LUCKY BROADCAST WorkerMessage::BatchRequest");
                         self.network
                             .lucky_broadcast(addresses, Bytes::from(serialized), self.sync_retry_nodes)
                             .await;

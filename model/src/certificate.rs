@@ -1,17 +1,21 @@
-use std::collections::{BTreeMap, BTreeSet, HashSet};
-use std::fmt;
-use std::time::SystemTime;
-
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
-
-use crate::base_types::Epoch;
-use crate::committee::Committee;
-use crate::hash::{Hash, Hashable, Hasher};
-use crate::keypair::Keypair;
-use crate::pubkey::Pubkey;
-use crate::signature::{Signature, Signer};
-use crate::{Round, WorkerId};
+use {
+    crate::{
+        base_types::Epoch,
+        committee::Committee,
+        hash::{Hash, Hashable, Hasher},
+        keypair::Keypair,
+        pubkey::Pubkey,
+        signature::{Signature, Signer},
+        Round, WorkerId,
+    },
+    serde::{Deserialize, Serialize},
+    std::{
+        collections::{BTreeMap, BTreeSet, HashSet},
+        fmt,
+        time::SystemTime,
+    },
+    thiserror::Error,
+};
 
 pub type DagResult<T> = Result<T, DagError>;
 
@@ -38,7 +42,7 @@ pub enum DagError {
     #[error("Authority {0} appears in quorum more than once")]
     AuthorityReuse(Pubkey),
 
-    #[error("Received unexpected vote fo header {0}")]
+    #[error("Received unexpected vote for header {0}")]
     UnexpectedVote(Hash),
 
     #[error("Received certificate without a quorum")]

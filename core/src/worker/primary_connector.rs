@@ -1,8 +1,8 @@
-use crate::worker::SerializedBatchDigestMessage;
-use bytes::Bytes;
-use mundis_network::simple_sender::SimpleSender;
-use std::net::SocketAddr;
-use tokio::sync::mpsc::Receiver;
+use log::info;
+use {
+    crate::worker::SerializedBatchDigestMessage, bytes::Bytes,
+    mundis_network::simple_sender::SimpleSender, std::net::SocketAddr, tokio::sync::mpsc::Receiver,
+};
 
 // Send batches' digests to the primary.
 pub struct PrimaryConnector {
@@ -30,6 +30,7 @@ impl PrimaryConnector {
     async fn run(&mut self) {
         while let Some(digest) = self.rx_digest.recv().await {
             // Send the digest through the network.
+            info!("SIMPLE SEND SerializedBatchDigestMessage");
             self.network
                 .send(self.primary_address, Bytes::from(digest))
                 .await;

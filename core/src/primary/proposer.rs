@@ -1,16 +1,21 @@
-use log::{debug, log_enabled, warn};
-use mundis_model::base_types::Epoch;
-use mundis_model::certificate::{Certificate, Header};
-use mundis_model::committee::Committee;
-use mundis_model::hash::{Hash, Hashable};
-use mundis_model::keypair::Keypair;
-use mundis_model::{Round, WorkerId};
-use std::cmp::Ordering;
-use std::time::Duration;
-use tokio::sync::mpsc::{Receiver, Sender};
-use tokio::time::{sleep, Instant};
+use {
+    log::{debug, info, log_enabled, warn},
+    mundis_model::{
+        base_types::Epoch,
+        certificate::{Certificate, Header},
+        committee::Committee,
+        hash::{Hash, Hashable},
+        keypair::Keypair,
+        Round, WorkerId,
+    },
+    std::{cmp::Ordering, time::Duration},
+    tokio::{
+        sync::mpsc::{Receiver, Sender},
+        time::{sleep, Instant},
+    },
+};
 
-/// The proposer creates new headers and send them to the core for broadcasting and further processing.
+/// The proposer creates new headers and sends them to the core for broadcasting and further processing.
 pub struct Proposer {
     /// The public key of this primary.
     authority: Keypair,
@@ -73,30 +78,30 @@ impl Proposer {
 
     /// Main loop listening to incoming messages.
     pub async fn run(&mut self) {
-        debug!("Dag starting at round {}", self.round);
+        info!("Dag starting at round {}", self.round);
         let mut advance = true;
 
         let timer = sleep(Duration::from_millis(self.max_header_delay));
         tokio::pin!(timer);
 
         loop {
-            // Check if we can propose a new header. We propose a new header when we have a quorum of parents
-            // and one of the following conditions is met:
-            // (i) the timer expired (we timed out on the leader or gave up gather votes for the leader),
-            // (ii) we have enough digests (minimum header size) and we are on the happy path (we can vote for
-            // the leader or the leader has enough votes to enable a commit).
+            // Check if we can propose a new header.
+            // We propose a new header when we have a quorum of parents and one of the following conditions is met:
+            // (i) the timer expired (we timed out on the leader or gave up gathering votes for the leader),
+            // (ii) we have enough digests (minimum header size) and we are on the happy path
+            // (we can vote for the leader or the leader has enough votes to enable a commit).
             let enough_parents = !self.last_parents.is_empty();
             let enough_digests = self.payload_size >= self.header_size;
             let timer_expired = timer.is_elapsed();
 
             if (timer_expired || (enough_digests && advance)) && enough_parents {
                 if timer_expired {
-                    warn!("Timer expired for round {}", self.round);
+                    debug!("Timer expired for round {}", self.round);
                 }
 
                 // Advance to the next round.
                 self.round += 1;
-                debug!("Dag moved to round {}", self.round);
+                info!("Dag moved to round {}", self.round);
 
                 // Make a new header.
                 self.make_header().await;

@@ -1,9 +1,9 @@
-use crate::primary::WorkerPrimaryMessage;
-use crate::worker::SerializedBatchDigestMessage;
-use mundis_ledger::Store;
-use mundis_model::hash::Hasher;
-use mundis_model::WorkerId;
-use tokio::sync::mpsc::{Receiver, Sender};
+use {
+    crate::{primary::WorkerPrimaryMessage, worker::SerializedBatchDigestMessage},
+    mundis_ledger::Store,
+    mundis_model::{hash::Hasher, WorkerId},
+    tokio::sync::mpsc::{Receiver, Sender},
+};
 
 /// Indicates a serialized `WorkerMessage::Batch` message.
 pub type SerializedBatchMessage = Vec<u8>;

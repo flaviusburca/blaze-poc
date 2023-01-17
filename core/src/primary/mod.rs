@@ -1,44 +1,51 @@
-use crate::primary::certificate_waiter::CertificateWaiter;
-use crate::primary::garbage_collector::GarbageCollector;
-use crate::primary::header_waiter::{HeaderWaiter, WaiterMessage};
-use crate::primary::helper::Helper;
-use crate::primary::payload_receiver::PayloadReceiver;
-use crate::primary::primary_core::PrimaryCore;
-use crate::primary::proposer::Proposer;
-use crate::primary::synchronizer::Synchronizer;
-use async_trait::async_trait;
-use bytes::Bytes;
-use futures::SinkExt;
-use log::info;
-use mundis_ledger::Store;
-use mundis_model::certificate::{Certificate, DagError, Header};
-use mundis_model::config::ValidatorConfig;
-use mundis_model::hash::Hash;
-use mundis_model::pubkey::Pubkey;
-use mundis_model::signature::Signer;
-use mundis_model::vote::Vote;
-use mundis_model::{Round, WorkerId};
-use mundis_network::receiver::{MessageHandler, NetworkReceiver, Writer};
-use serde::{Deserialize, Serialize};
-use std::error::Error;
-use std::sync::atomic::AtomicU64;
-use std::sync::Arc;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use {
+    crate::primary::{
+        certificate_waiter::CertificateWaiter,
+        garbage_collector::GarbageCollector,
+        header_waiter::{HeaderWaiter, WaiterMessage},
+        payload_receiver::PayloadReceiver,
+        primary_core::PrimaryCore,
+        primary_helper::PrimaryHelper,
+        primary_synchronizer::PrimarySynchronizer,
+        proposer::Proposer,
+    },
+    async_trait::async_trait,
+    bytes::Bytes,
+    futures::SinkExt,
+    log::info,
+    mundis_ledger::Store,
+    mundis_model::{
+        certificate::{Certificate, DagError, Header},
+        config::ValidatorConfig,
+        hash::Hash,
+        pubkey::Pubkey,
+        signature::Signer,
+        vote::Vote,
+        Round, WorkerId,
+    },
+    mundis_network::receiver::{MessageHandler, NetworkReceiver, Writer},
+    serde::{Deserialize, Serialize},
+    std::{
+        error::Error,
+        sync::{atomic::AtomicU64, Arc},
+    },
+    tokio::sync::mpsc::{channel, Receiver, Sender},
+};
 
 mod aggregators;
 mod certificate_waiter;
 mod garbage_collector;
 mod header_waiter;
-mod helper;
 mod payload_receiver;
 mod primary_core;
+mod primary_helper;
+mod primary_synchronizer;
 mod proposer;
-mod synchronizer;
 
 /// The default channel capacity for each channel of the primary.
 pub const CHANNEL_CAPACITY: usize = 1_000;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum PrimaryMessage {
     Header(Header),
     Vote(Vote),
@@ -79,19 +86,37 @@ impl MessageHandler for PrimaryReceiverHandler {
 
         // Deserialize and parse the message.
         match bincode::deserialize(&serialized).map_err(DagError::SerializationError)? {
-            PrimaryMessage::CertificatesRequest(missing, requestor) => self
-                .tx_cert_requests
-                .send((missing, requestor))
-                .await
-                .expect("Failed to send primary message"),
+            // // PrimaryMessage::CertificatesRequest
+            PrimaryMessage::CertificatesRequest(missing, requestor) => {
+                info!("RECEVIED PrimaryMessage::CertificatesRequest");
+                self.tx_cert_requests
+                    .send((missing, requestor))
+                    .await
+                    .expect("Failed to send primary message")
+            }
             // PrimaryMessage::Header
             // PrimaryMessage::Vote
             // PrimaryMessage::Certificate
-            primary_message => self
+            request => {
+                let pm = request.clone();
+                match request {
+                    PrimaryMessage::Header(header) => {
+                        info!("RECEIVED PrimaryMessage::Header with id={}, round={}", header.id, header.round);
+                    }
+                    PrimaryMessage::Vote(vote) => {
+                        info!("RECEIVED PrimaryMessage::Vote for header with id={}, round={}", vote.id, vote.round);
+                    }
+                    PrimaryMessage::Certificate(certificate) => {
+                        info!("RECEIVED PrimaryMessage::Certificate with id={}, round={}", certificate.header.id, certificate.header.round);
+                    }
+                    _ => unreachable!()
+                }
+                self
                 .tx_primary_messages
-                .send(primary_message)
+                .send(pm)
                 .await
-                .expect("Failed to send certificate"),
+                .expect("Failed to send certificate")
+            },
         }
         Ok(())
     }
@@ -124,7 +149,7 @@ impl Primary {
         // Spawn the network receiver listening to messages from the other primaries.
         let address = config
             .initial_committee
-            .primary(&config.identity.pubkey())
+            .primary_address(&config.identity.pubkey())
             .expect("Our public key or worker id is not in the committee")
             .primary_to_primary;
 
@@ -146,7 +171,7 @@ impl Primary {
         // Spawn the network receiver listening to messages from our workers.
         let address = config
             .initial_committee
-            .primary(&config.identity.pubkey())
+            .primary_address(&config.identity.pubkey())
             .expect("Our public key or worker id is not in the committee")
             .worker_to_primary;
         NetworkReceiver::spawn(
@@ -159,7 +184,7 @@ impl Primary {
         );
 
         // The `Synchronizer` provides auxiliary methods helping to `Core` to sync.
-        let synchronizer = Synchronizer::new(
+        let synchronizer = PrimarySynchronizer::new(
             config.identity.pubkey(),
             &config.initial_committee,
             store.clone(),
@@ -234,7 +259,7 @@ impl Primary {
         );
 
         // The `Helper` is dedicated to reply to certificates requests from other primaries.
-        Helper::spawn(config.initial_committee.clone(), store, rx_cert_requests);
+        PrimaryHelper::spawn(config.initial_committee.clone(), store, rx_cert_requests);
 
         info!("Primary successfully started");
 

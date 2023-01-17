@@ -1,6 +1,10 @@
-use std::collections::{HashMap, VecDeque};
-use tokio::sync::mpsc::{channel, Sender};
-use tokio::sync::oneshot;
+use {
+    std::collections::{HashMap, VecDeque},
+    tokio::sync::{
+        mpsc::{channel, Sender},
+        oneshot,
+    },
+};
 
 pub type StoreError = rocksdb::Error;
 type StoreResult<T> = Result<T, StoreError>;

@@ -1,8 +1,8 @@
-use crate::genesis_commands::GenesisCommand;
-use crate::keytool_commands::KeytoolCommand;
-use clap::*;
-use mundis_model::pubkey::Pubkey;
-use std::path::PathBuf;
+use {
+    crate::{genesis_commands::GenesisCommand, keytool_commands::KeytoolCommand},
+    clap::*,
+    std::path::PathBuf,
+};
 
 #[allow(clippy::large_enum_variant)]
 #[derive(Parser)]
@@ -25,7 +25,7 @@ pub enum MundisCommand {
         cmd: GenesisCommand,
     },
 
-    #[clap(name = "keytool")]
+    #[clap(name = "keytool", about = "Key management commands")]
     Keytool {
         #[clap(subcommand)]
         cmd: KeytoolCommand,

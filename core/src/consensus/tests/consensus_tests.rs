@@ -1,13 +1,16 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use super::*;
-use mundis_model::certificate::Header;
-use mundis_model::committee::{Authority, ExecutorAddresses, PrimaryAddresses};
-use mundis_model::keypair::Keypair;
-use mundis_model::signature::Signer;
-use rand::rngs::StdRng;
-use rand::SeedableRng;
-use std::collections::{BTreeSet, VecDeque};
-use tokio::sync::mpsc::channel;
+use {
+    mundis_model::{
+        certificate::Header,
+        committee::{Authority, ExecutorAddresses, PrimaryAddresses},
+        keypair::Keypair,
+        signature::Signer,
+    },
+    rand::{rngs::StdRng, SeedableRng},
+    std::collections::{BTreeSet, VecDeque},
+    tokio::sync::mpsc::channel,
+};
 
 pub fn keys() -> Vec<Keypair> {
     let mut rng = StdRng::from_seed([0; 32]);

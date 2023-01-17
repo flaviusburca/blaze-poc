@@ -1,16 +1,16 @@
-use crate::NetworkError;
-use bytes::Bytes;
-use futures::sink::SinkExt as _;
-use futures::StreamExt;
-use log::{info, warn};
-use rand::rngs::SmallRng;
-use rand::seq::SliceRandom;
-use rand::SeedableRng;
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use tokio::net::TcpStream;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
+use {
+    crate::NetworkError,
+    bytes::Bytes,
+    futures::{sink::SinkExt as _, StreamExt},
+    log::{info, warn},
+    rand::{rngs::SmallRng, seq::SliceRandom, SeedableRng},
+    std::{collections::HashMap, net::SocketAddr},
+    tokio::{
+        net::TcpStream,
+        sync::mpsc::{channel, Receiver, Sender},
+    },
+    tokio_util::codec::{Framed, LengthDelimitedCodec},
+};
 
 /// We keep alive one TCP connection per peer, each connection is handled by a separate task (called `Connection`).
 /// We communicate with our 'connections' through a dedicated channel kept by the HashMap called `connections`.

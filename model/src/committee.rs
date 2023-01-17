@@ -1,11 +1,12 @@
-use crate::config::ConfigError;
-use crate::{Stake, WorkerId};
-use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
+use std::fs;
+use std::path::PathBuf;
 use {
-    crate::{base_types::Epoch, pubkey::Pubkey},
+    crate::{base_types::Epoch, config::ConfigError, pubkey::Pubkey, Stake, WorkerId},
     serde::{Deserialize, Serialize},
-    std::collections::BTreeMap,
+    std::{
+        collections::{BTreeMap, HashMap},
+        net::SocketAddr,
+    },
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq)]
@@ -100,7 +101,7 @@ impl Committee {
     }
 
     /// Returns the primary address of the target primary.
-    pub fn primary(&self, authority: &Pubkey) -> Result<PrimaryAddresses, ConfigError> {
+    pub fn primary_address(&self, authority: &Pubkey) -> Result<PrimaryAddresses, ConfigError> {
         self.authorities
             .get(&authority.clone())
             .map(|x| x.primary.clone())
@@ -108,7 +109,7 @@ impl Committee {
     }
 
     /// Returns the addresses of all primaries except `myself`.
-    pub fn others_primaries(&self, myself: &Pubkey) -> Vec<(Pubkey, PrimaryAddresses)> {
+    pub fn others_primary_addresses(&self, myself: &Pubkey) -> Vec<(Pubkey, PrimaryAddresses)> {
         self.authorities
             .iter()
             .filter(|(name, _)| name != &myself)
@@ -172,29 +173,33 @@ impl Committee {
             .ok_or_else(|| ConfigError::NotInCommittee(*myself))
     }
 
-    pub fn for_testing(pubkey: Pubkey) -> Self {
+    pub fn for_testing(pubkey: Pubkey, base_port: u32, num_workers: u8) -> Self {
         let mut authorities = BTreeMap::new();
         authorities.insert(
             pubkey,
             Authority {
                 stake: 100,
                 primary: PrimaryAddresses {
-                    primary_to_primary: SocketAddr::new(
-                        "0.0.0.0".parse::<IpAddr>().unwrap(),
-                        10000,
-                    ),
-                    worker_to_primary: SocketAddr::new(
-                        "127.0.0.1".parse::<IpAddr>().unwrap(),
-                        10001,
-                    ),
+                    primary_to_primary: format!("0.0.0.0:{}", base_port).parse().unwrap(),
+                    worker_to_primary: format!("0.0.0.0:{}", base_port + 1).parse().unwrap(),
                 },
-                workers: Default::default(),
                 executor: ExecutorAddresses {
-                    worker_to_executor: SocketAddr::new(
-                        "127.0.0.1".parse::<IpAddr>().unwrap(),
-                        10002,
-                    ),
+                    worker_to_executor: format!("0.0.0.0:{}", base_port + 2).parse().unwrap(),
                 },
+                workers: (0..num_workers)
+                    .map(|i| {
+                        let i = i as u32;
+                        (
+                            i as WorkerId,
+                            WorkerAddresses {
+                                transactions: format!("0.0.0.0:{}", base_port + (i + 1) * 100 + 1).parse().unwrap(),
+                                worker_to_worker: format!("0.0.0.0:{}", base_port + (i + 1) * 100 + 4).parse().unwrap(),
+                                primary_to_worker: format!("0.0.0.0:{}", base_port + (i + 1) * 100 + 5).parse()
+                                .unwrap(),
+                            },
+                        )
+                    })
+                    .collect(),
             },
         );
 
@@ -202,6 +207,11 @@ impl Committee {
             epoch: 0,
             authorities,
         }
+    }
+
+    pub fn load(file: PathBuf) -> Self {
+        let data = fs::read(file).expect("Could not read Committee");
+        serde_json::from_slice(data.as_slice()).expect("Could not read Committee")
     }
 }
 

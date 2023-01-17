@@ -1,12 +1,13 @@
-use crate::NetworkError;
-use async_trait::async_trait;
-use bytes::Bytes;
-use futures::stream::SplitSink;
-use futures::StreamExt;
-use log::{debug, info, warn};
-use std::net::SocketAddr;
-use tokio::net::{TcpListener, TcpStream};
-use tokio_util::codec::{Framed, LengthDelimitedCodec};
+use {
+    crate::NetworkError,
+    async_trait::async_trait,
+    bytes::Bytes,
+    futures::{stream::SplitSink, StreamExt},
+    log::{debug, info, warn},
+    std::net::SocketAddr,
+    tokio::net::{TcpListener, TcpStream},
+    tokio_util::codec::{Framed, LengthDelimitedCodec},
+};
 
 /// Convenient alias for the writer end of the TCP channel.
 pub type Writer = SplitSink<Framed<TcpStream, LengthDelimitedCodec>, Bytes>;

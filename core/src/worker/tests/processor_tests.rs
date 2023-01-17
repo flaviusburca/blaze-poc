@@ -1,8 +1,9 @@
-use super::*;
-use crate::worker::common::batch;
-use crate::worker::WorkerMessage;
-use std::fs;
-use tokio::sync::mpsc::channel;
+use {
+    super::*,
+    crate::worker::{common::batch, WorkerMessage},
+    std::fs,
+    tokio::sync::mpsc::channel,
+};
 
 #[tokio::test]
 async fn hash_and_store() {

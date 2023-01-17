@@ -1,10 +1,10 @@
-use futures::future::try_join_all;
-use futures::stream::FuturesUnordered;
-use futures::StreamExt as _;
-use log::error;
-use mundis_ledger::Store;
-use mundis_model::certificate::{Certificate, DagError, DagResult};
-use tokio::sync::mpsc::{Receiver, Sender};
+use {
+    futures::{future::try_join_all, stream::FuturesUnordered, StreamExt as _},
+    log::error,
+    mundis_ledger::Store,
+    mundis_model::certificate::{Certificate, DagError, DagResult},
+    tokio::sync::mpsc::{Receiver, Sender},
+};
 
 /// Waits to receive all the ancestors of a certificate before looping it back to the `Core`
 /// for further processing.

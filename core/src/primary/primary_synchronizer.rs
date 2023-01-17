@@ -1,17 +1,24 @@
-use crate::primary::header_waiter::WaiterMessage;
-use futures::TryFutureExt;
-use mundis_ledger::Store;
-use mundis_model::certificate::DagError::StoreError;
-use mundis_model::certificate::{Certificate, DagError, DagResult, Header};
-use mundis_model::committee::Committee;
-use mundis_model::hash::{Hash, Hashable};
-use mundis_model::pubkey::Pubkey;
-use std::collections::HashMap;
-use tokio::sync::mpsc::Sender;
+use {
+    crate::primary::header_waiter::WaiterMessage,
+    futures::TryFutureExt,
+    mundis_ledger::Store,
+    mundis_model::{
+        certificate::{
+            Certificate,
+            DagError::{self, StoreError},
+            DagResult, Header,
+        },
+        committee::Committee,
+        hash::{Hash, Hashable},
+        pubkey::Pubkey,
+    },
+    std::collections::HashMap,
+    tokio::sync::mpsc::Sender,
+};
 
 /// The `Synchronizer` checks if we have all batches and parents referenced by a header. If we don't, it sends
 /// a command to the `Waiter` to request the missing data.
-pub struct Synchronizer {
+pub struct PrimarySynchronizer {
     /// The public key of this primary.
     authority: Pubkey,
     /// The persistent storage.
@@ -24,7 +31,7 @@ pub struct Synchronizer {
     genesis: Vec<(Hash, Certificate)>,
 }
 
-impl Synchronizer {
+impl PrimarySynchronizer {
     pub fn new(
         authority: Pubkey,
         committee: &Committee,

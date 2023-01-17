@@ -1,12 +1,14 @@
-use crate::worker::common::{
-    batch_digest, committee_with_base_port, keys, listener, serialized_batch,
+use {
+    crate::worker::{
+        common::{batch_digest, committee_with_base_port, keys, listener, serialized_batch},
+        worker_helper::WorkerHelper,
+    },
+    bytes::Bytes,
+    mundis_ledger::Store,
+    mundis_model::signature::Signer,
+    std::fs,
+    tokio::sync::mpsc::channel,
 };
-use crate::worker::helper::Helper;
-use bytes::Bytes;
-use mundis_ledger::Store;
-use mundis_model::signature::Signer;
-use std::fs;
-use tokio::sync::mpsc::channel;
 
 #[tokio::test]
 async fn batch_reply() {
@@ -26,7 +28,7 @@ async fn batch_reply() {
         .await;
 
     // Spawn an `Helper` instance.
-    Helper::spawn(id, committee.clone(), store, rx_request);
+    WorkerHelper::spawn(id, committee.clone(), store, rx_request);
 
     // Spawn a listener to receive the batch reply.
     let address = committee

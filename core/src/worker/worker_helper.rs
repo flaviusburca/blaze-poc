@@ -1,15 +1,15 @@
-use bytes::Bytes;
-use log::{debug, error, warn};
-use mundis_ledger::Store;
-use mundis_model::committee::Committee;
-use mundis_model::hash::Hash;
-use mundis_model::pubkey::Pubkey;
-use mundis_model::WorkerId;
-use mundis_network::simple_sender::SimpleSender;
-use tokio::sync::mpsc::Receiver;
+use log::info;
+use {
+    bytes::Bytes,
+    log::{debug, error, warn},
+    mundis_ledger::Store,
+    mundis_model::{committee::Committee, hash::Hash, pubkey::Pubkey, WorkerId},
+    mundis_network::simple_sender::SimpleSender,
+    tokio::sync::mpsc::Receiver,
+};
 
 /// A task dedicated to help other authorities by replying to their batch requests.
-pub struct Helper {
+pub struct WorkerHelper {
     /// The id of this worker.
     id: WorkerId,
     /// The committee information.
@@ -22,7 +22,7 @@ pub struct Helper {
     network: SimpleSender,
 }
 
-impl Helper {
+impl WorkerHelper {
     pub fn spawn(
         id: WorkerId,
         committee: Committee,
@@ -58,7 +58,10 @@ impl Helper {
             // Reply to the request (the best we can).
             for digest in digests {
                 match self.store.read(digest.to_vec()).await {
-                    Ok(Some(data)) => self.network.send(address, Bytes::from(data)).await,
+                    Ok(Some(data)) => {
+                        info!("SIMPLE SEND Worker::Digests");
+                        self.network.send(address, Bytes::from(data)).await
+                    },
                     Ok(None) => (),
                     Err(e) => error!("{}", e),
                 }
@@ -119,7 +122,10 @@ impl ExecutorHelper {
 
             for digest in digests {
                 match self.store.read(digest.to_vec()).await {
-                    Ok(Some(data)) => self.network.send(address, Bytes::from(data)).await,
+                    Ok(Some(data)) => {
+                        info!("SIMPLE SEND Workder::Digests");
+                        self.network.send(address, Bytes::from(data)).await
+                    },
                     Ok(None) => (),
                     Err(e) => error!("{}", e),
                 }

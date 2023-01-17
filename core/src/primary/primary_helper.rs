@@ -1,15 +1,17 @@
-use crate::primary::PrimaryMessage;
-use bytes::Bytes;
-use log::{error, warn};
-use mundis_ledger::Store;
-use mundis_model::committee::Committee;
-use mundis_model::hash::Hash;
-use mundis_model::pubkey::Pubkey;
-use mundis_network::simple_sender::SimpleSender;
-use tokio::sync::mpsc::Receiver;
+use log::info;
+use {
+    crate::primary::PrimaryMessage,
+    bytes::Bytes,
+    log::{error, warn},
+    mundis_ledger::Store,
+    mundis_model::{committee::Committee, hash::Hash, pubkey::Pubkey},
+    mundis_network::simple_sender::SimpleSender,
+    tokio::sync::mpsc::Receiver,
+};
+use mundis_model::certificate::Certificate;
 
 /// A task dedicated to help other authorities by replying to their certificates requests.
-pub struct Helper {
+pub struct PrimaryHelper {
     /// The committee information.
     committee: Committee,
     /// The persistent storage.
@@ -20,7 +22,7 @@ pub struct Helper {
     network: SimpleSender,
 }
 
-impl Helper {
+impl PrimaryHelper {
     pub fn spawn(committee: Committee, store: Store, rx_primaries: Receiver<(Vec<Hash>, Pubkey)>) {
         tokio::spawn(async move {
             Self {
@@ -39,7 +41,7 @@ impl Helper {
             // TODO [issue #195]: Do some accounting to prevent bad nodes from monopolizing our resources.
 
             // get the requestors address.
-            let address = match self.committee.primary(&origin) {
+            let address = match self.committee.primary_address(&origin) {
                 Ok(x) => x.primary_to_primary,
                 Err(e) => {
                     warn!("Unexpected certificate request: {}", e);
@@ -47,18 +49,22 @@ impl Helper {
                 }
             };
 
+            info!("READING certificates from DB");
+
             // Reply to the request (the best we can).
             for digest in digests {
                 match self.store.read(digest.to_vec()).await {
                     Ok(Some(data)) => {
                         // TODO: Remove this deserialization-serialization in the critical path.
-                        let certificate = bincode::deserialize(&data)
+                        let certificate: Certificate = bincode::deserialize(&data)
                             .expect("Failed to deserialize our own certificate");
+                        info!("FOUND certificate {} in DB", certificate.header);
                         let bytes = bincode::serialize(&PrimaryMessage::Certificate(certificate))
                             .expect("Failed to serialize our own certificate");
+                        info!("SIMPLE SEND PrimaryMessage::Certificate");
                         self.network.send(address, Bytes::from(bytes)).await;
                     }
-                    Ok(None) => (),
+                    Ok(None) => info!("Certificate not found in DB"),
                     Err(e) => error!("{}", e),
                 }
             }

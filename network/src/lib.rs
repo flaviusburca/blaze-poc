@@ -1,6 +1,7 @@
-use std::fmt::Debug;
-use std::net::SocketAddr;
-use thiserror::Error;
+use {
+    std::{fmt::Debug, net::SocketAddr},
+    thiserror::Error,
+};
 
 pub mod receiver;
 pub mod reliable_sender;

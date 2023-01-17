@@ -1,9 +1,11 @@
-use crate::worker::batch_maker::BatchMaker;
-use crate::worker::common::transaction;
-use crate::worker::quorum_waiter::QuorumWaiterMessage;
-use crate::worker::WorkerMessage;
-use mundis_model::pubkey::Pubkey;
-use tokio::sync::mpsc::channel;
+use {
+    crate::worker::{
+        batch_maker::BatchMaker, common::transaction, quorum_waiter::QuorumWaiterMessage,
+        WorkerMessage,
+    },
+    mundis_model::pubkey::Pubkey,
+    tokio::sync::mpsc::channel,
+};
 
 #[tokio::test]
 async fn make_batch() {
