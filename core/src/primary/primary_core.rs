@@ -29,7 +29,9 @@ use {
     },
     tokio::sync::mpsc::{Receiver, Sender},
 };
+use mundis_model::view::View;
 
+#[derive()]
 pub struct PrimaryCore {
     /// The keypair of this primary.
     authority: Keypair,
@@ -55,7 +57,7 @@ pub struct PrimaryCore {
     /// Output all certificates to the consensus layer.
     tx_consensus: Sender<Certificate>,
     /// Send valid a quorum of certificates' ids to the `Proposer` (along with their round).
-    tx_proposer: Sender<(Vec<Certificate>, Round)>,
+    tx_proposer: Sender<(Vec<Certificate>, Round, i64)>,
 
     /// The last garbage collected round.
     gc_round: Round,
@@ -76,6 +78,7 @@ pub struct PrimaryCore {
 }
 
 impl PrimaryCore {
+    #[allow(clippy::too_many_arguments)]
     pub fn spawn(
         authority: Keypair,
         committee: Committee,
@@ -88,7 +91,7 @@ impl PrimaryCore {
         rx_certificate_waiter: Receiver<Certificate>,
         rx_proposer: Receiver<Header>,
         tx_consensus: Sender<Certificate>,
-        tx_proposer: Sender<(Vec<Certificate>, Round)>,
+        tx_proposer: Sender<(Vec<Certificate>, Round, i64)>,
     ) {
         tokio::spawn(async move {
             Self {
@@ -225,7 +228,7 @@ impl PrimaryCore {
 
     #[async_recursion]
     async fn process_certificate(&mut self, certificate: Certificate) -> DagResult<()> {
-        debug!("Processing {:?}", certificate);
+        // debug!("Processing certificate {:?}", certificate);
 
         // Process the header embedded in the certificate if we haven't already voted for it (if we already
         // voted, it means we already processed it). Since this header got certified, we are sure that all
@@ -263,7 +266,7 @@ impl PrimaryCore {
         {
             // Send it to the `Proposer`.
             self.tx_proposer
-                .send((parents, certificate.round()))
+                .send((parents, certificate.round(), certificate.header.view))
                 .await
                 .expect("Failed to send certificate");
         }
@@ -281,14 +284,14 @@ impl PrimaryCore {
 
     #[async_recursion]
     async fn process_vote(&mut self, vote: Vote) -> DagResult<()> {
-        debug!("Processing {:?}", vote);
+        // debug!("Processing vote {:?}", vote);
 
         // Add it to the votes' aggregator and try to make a new certificate.
         if let Some(certificate) =
             self.votes_aggregator
                 .append(vote, &self.committee, &self.current_header)?
         {
-            debug!("Assembled {:?}", certificate);
+            // debug!("Assembled certificate {:?}", certificate);
 
             // Broadcast the certificate.
             let addresses = self
@@ -299,7 +302,7 @@ impl PrimaryCore {
                 .collect();
             let bytes = bincode::serialize(&PrimaryMessage::Certificate(certificate.clone()))
                 .expect("Failed to serialize our own certificate");
-            info!("RELIABLE BROADCAST PrimaryMessage::Certificate");
+            // debug!("RELIABLE BROADCAST PrimaryMessage::Certificate");
             let handlers = self.network.broadcast(addresses, Bytes::from(bytes)).await;
             self.cancel_handlers
                 .entry(certificate.round())
@@ -316,7 +319,7 @@ impl PrimaryCore {
 
     #[async_recursion]
     async fn process_header(&mut self, header: &Header) -> DagResult<()> {
-        debug!("Processing {:?}", header);
+        // debug!("Processing header {:?}", header);
         // Indicate that we are processing this header.
         self.processing
             .entry(header.round)
@@ -365,7 +368,7 @@ impl PrimaryCore {
         {
             // Make a vote and send it to the header's creator.
             let vote = Vote::new(header, &self.authority).await;
-            info!("Created vote: {:?}", vote);
+            // info!("Created vote: {:?}", vote);
             if vote.origin == self.authority.pubkey() {
                 self.process_vote(vote)
                     .await
@@ -376,7 +379,7 @@ impl PrimaryCore {
                     .primary_address(&header.author)
                     .expect("Author of valid header is not in the committee")
                     .primary_to_primary;
-                info!("RELIABLE SEND PrimaryMessage::Vote for header={}, round={}", vote.id, vote.round);
+                // debug!("RELIABLE SEND PrimaryMessage::Vote for header={}, round={}", vote.id, vote.round);
                 let bytes = bincode::serialize(&PrimaryMessage::Vote(vote))
                     .expect("Failed to serialize our own vote");
                 let handler = self.network.send(address, Bytes::from(bytes)).await;
@@ -403,7 +406,7 @@ impl PrimaryCore {
             .collect();
         let bytes = bincode::serialize(&PrimaryMessage::Header(header.clone()))
             .expect("Failed to serialize our own header");
-        info!("RELIABLE BROADCAST PrimaryMessage::Header with id={}, round={}", header.id, header.round);
+        //debug!("RELIABLE BROADCAST PrimaryMessage::Header with id={}, round={}", header.id, header.round);
         let handlers = self.network.broadcast(addresses, Bytes::from(bytes)).await;
         self.cancel_handlers
             .entry(header.round)

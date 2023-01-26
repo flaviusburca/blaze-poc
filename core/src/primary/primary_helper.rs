@@ -23,7 +23,11 @@ pub struct PrimaryHelper {
 }
 
 impl PrimaryHelper {
-    pub fn spawn(committee: Committee, store: Store, rx_primaries: Receiver<(Vec<Hash>, Pubkey)>) {
+    pub fn spawn(
+        committee: Committee,
+        store: Store,
+        rx_primaries: Receiver<(Vec<Hash>, Pubkey)>
+    ) {
         tokio::spawn(async move {
             Self {
                 committee,

@@ -101,13 +101,13 @@ impl MessageHandler for PrimaryReceiverHandler {
                 let pm = request.clone();
                 match request {
                     PrimaryMessage::Header(header) => {
-                        info!("RECEIVED PrimaryMessage::Header with id={}, round={}", header.id, header.round);
+                        // info!("RECEIVED PrimaryMessage::Header with id={}, round={}", header.id, header.round);
                     }
                     PrimaryMessage::Vote(vote) => {
-                        info!("RECEIVED PrimaryMessage::Vote for header with id={}, round={}", vote.id, vote.round);
+                        // info!("RECEIVED PrimaryMessage::Vote for header with id={}, round={}", vote.id, vote.round);
                     }
                     PrimaryMessage::Certificate(certificate) => {
-                        info!("RECEIVED PrimaryMessage::Certificate with id={}, round={}", certificate.header.id, certificate.header.round);
+                        // info!("RECEIVED PrimaryMessage::Certificate with id={}, round={}", certificate.header.id, certificate.header.round);
                     }
                     _ => unreachable!()
                 }
@@ -133,8 +133,7 @@ impl Primary {
     ) -> anyhow::Result<()> {
         info!("Starting primary....");
 
-        let (tx_primary_messages, rx_primary_messages) =
-            channel::<PrimaryMessage>(CHANNEL_CAPACITY);
+        let (tx_primary_messages, rx_primary_messages) = channel::<PrimaryMessage>(CHANNEL_CAPACITY);
         let (tx_cert_requests, rx_cert_requests) = channel::<(Vec<Hash>, Pubkey)>(CHANNEL_CAPACITY);
         let (tx_sync_headers, rx_sync_headers) = channel::<WaiterMessage>(CHANNEL_CAPACITY);
         let (tx_sync_certificates, rx_sync_certificates) = channel::<Certificate>(CHANNEL_CAPACITY);
@@ -142,9 +141,8 @@ impl Primary {
         let (tx_others_digests, rx_others_digests) = channel::<(Hash, WorkerId)>(CHANNEL_CAPACITY);
         let (tx_headers_loopback, rx_headers_loopback) = channel::<Header>(CHANNEL_CAPACITY);
         let (tx_headers, rx_headers) = channel::<Header>(CHANNEL_CAPACITY);
-        let (tx_certificates_loopback, rx_certificates_loopback) =
-            channel::<Certificate>(CHANNEL_CAPACITY);
-        let (tx_parents, rx_parents) = channel::<(Vec<Certificate>, Round)>(CHANNEL_CAPACITY);
+        let (tx_certificates_loopback, rx_certificates_loopback) = channel::<Certificate>(CHANNEL_CAPACITY);
+        let (tx_parents, rx_parents) = channel::<(Vec<Certificate>, Round, i64)>(CHANNEL_CAPACITY);
 
         // Spawn the network receiver listening to messages from the other primaries.
         let address = config

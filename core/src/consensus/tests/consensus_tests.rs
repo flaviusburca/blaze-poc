@@ -70,10 +70,10 @@ fn make_certificates(
 
     for round in start..=stop {
         next_parents.clear();
-        for name in keys {
-            let (digest, certificate) = mock_certificate(*name, round, parents.clone());
+        for pubkey in keys {
+            let (hash, certificate) = mock_certificate(*pubkey, round, parents.clone());
             certificates.push_back(certificate);
-            next_parents.insert(digest);
+            next_parents.insert(hash);
         }
         parents = next_parents.clone();
     }

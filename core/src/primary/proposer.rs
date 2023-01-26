@@ -1,3 +1,4 @@
+use log::error;
 use {
     log::{debug, info, log_enabled, warn},
     mundis_model::{
@@ -6,15 +7,17 @@ use {
         committee::Committee,
         hash::{Hash, Hashable},
         keypair::Keypair,
+        pubkey::Pubkey,
+        signature::Signer,
+        view::View,
         Round, WorkerId,
     },
     std::{cmp::Ordering, time::Duration},
     tokio::{
         sync::mpsc::{Receiver, Sender},
-        time::{sleep, Instant},
+        time::{sleep, Instant, Sleep},
     },
 };
-
 /// The proposer creates new headers and sends them to the core for broadcasting and further processing.
 pub struct Proposer {
     /// The public key of this primary.
@@ -27,18 +30,17 @@ pub struct Proposer {
     max_header_delay: u64,
 
     /// Receives the parents to include in the next header (along with their round number).
-    rx_core: Receiver<(Vec<Certificate>, Round)>,
+    rx_core: Receiver<(Vec<Certificate>, Round, i64)>,
     /// Receives the batches' digests from our workers.
     rx_workers: Receiver<(Hash, WorkerId)>,
     /// Sends newly created headers to the `Core`.
     tx_core: Sender<Header>,
 
-    /// The current round of the dag.
-    round: Round,
+    /// The current view
+    view: View,
+
     /// Holds the certificates' ids waiting to be included in the next header.
     last_parents: Vec<Certificate>,
-    /// Holds the certificate of the last leader (if any).
-    last_leader: Option<Certificate>,
     /// Holds the batches' digests waiting to be included in the next header.
     digests: Vec<(Hash, WorkerId)>,
     /// Keeps track of the size (in bytes) of batches' digests that we received so far.
@@ -51,7 +53,7 @@ impl Proposer {
         committee: Committee,
         header_size: usize,
         max_header_delay: u64,
-        rx_core: Receiver<(Vec<Certificate>, Round)>,
+        rx_core: Receiver<(Vec<Certificate>, Round, i64)>,
         rx_workers: Receiver<(Hash, WorkerId)>,
         tx_core: Sender<Header>,
     ) {
@@ -65,9 +67,8 @@ impl Proposer {
                 rx_core,
                 rx_workers,
                 tx_core,
-                round: 0,
+                view: View::new(1),
                 last_parents: genesis,
-                last_leader: None,
                 digests: Vec::with_capacity(2 * header_size),
                 payload_size: 0,
             }
@@ -76,33 +77,22 @@ impl Proposer {
         });
     }
 
-    /// Main loop listening to incoming messages.
+    // Main loop listening to incoming messages.
     pub async fn run(&mut self) {
-        info!("Dag starting at round {}", self.round);
-        let mut advance = true;
+        debug!("Dag starting at view {} and round {}", self.view.current, self.view.round);
 
         let timer = sleep(Duration::from_millis(self.max_header_delay));
         tokio::pin!(timer);
 
         loop {
-            // Check if we can propose a new header.
-            // We propose a new header when we have a quorum of parents and one of the following conditions is met:
-            // (i) the timer expired (we timed out on the leader or gave up gathering votes for the leader),
-            // (ii) we have enough digests (minimum header size) and we are on the happy path
-            // (we can vote for the leader or the leader has enough votes to enable a commit).
+            // Check if we can propose a new header. We propose a new header when one of the following conditions is met:
+            // 1. We have a quorum of certificates from the previous round and enough batches' digests;
+            // 2. We have a quorum of certificates from the previous round and the specified maximum inter-header delay has passed.
             let enough_parents = !self.last_parents.is_empty();
             let enough_digests = self.payload_size >= self.header_size;
             let timer_expired = timer.is_elapsed();
 
-            if (timer_expired || (enough_digests && advance)) && enough_parents {
-                if timer_expired {
-                    debug!("Timer expired for round {}", self.round);
-                }
-
-                // Advance to the next round.
-                self.round += 1;
-                info!("Dag moved to round {}", self.round);
-
+            if (timer_expired || enough_digests) && enough_parents {
                 // Make a new header.
                 self.make_header().await;
                 self.payload_size = 0;
@@ -113,31 +103,83 @@ impl Proposer {
             }
 
             tokio::select! {
-                Some((parents, round)) = self.rx_core.recv() => {
+                Some((parents, round, view)) = self.rx_core.recv() => {
                     // Compare the parents' round number with our current round.
-                    match round.cmp(&self.round) {
-                        Ordering::Greater => {
-                            // We accept round bigger than our current round to jump ahead in case we were
-                            // late (or just joined the network).
-                            self.round = round;
-                            self.last_parents = parents;
-                        },
-                        Ordering::Less => {
-                            // Ignore parents from older rounds.
-                        },
-                        Ordering::Equal => {
-                            // The core gives us the parents the first time they are enough to form a quorum.
-                            // Then it keeps giving us all the extra parents.
-                            self.last_parents.extend(parents)
-                        }
+                    if round < self.view.round || view < self.view.current {
+                        continue;
                     }
 
-                    // Check whether we can advance to the next round. Note that if we timeout,
-                    // we ignore this check and advance anyway.
-                    advance = match self.round % 2 {
-                        0 => self.update_leader(),
-                        _ => self.enough_votes(),
+                     // Signal that we have enough parent certificates to propose a new header.
+                    self.last_parents = parents.to_owned();
+
+                    error!("View={}, Round={}, enough_parents={}, enough_digests={}, timer_expired={}",
+                        self.view.current.abs(), round, enough_parents, enough_digests, timer_expired
+                    );
+
+                    // doar daca avem istoric
+                    if !parents.is_empty() {
+                        if self.view.current >= 0 {
+                            // daca view-ul curent nu este complain, alegem leader
+                            (self.view.leader, self.view.leader_name) = self.elect_leader();
+                            error!("(v={}, r={}) elected leader={}", self.view.current, round, self.view.leader_name);
+
+                            // cautam certificatul leader-ului
+                            let leader_certificate = parents
+                                .iter()
+                                .find(|x| (x.header.view >= self.view.current) && (x.origin() == self.view.leader))
+                                .clone();
+
+                            if leader_certificate.is_some() {
+                                let leader_view = leader_certificate.unwrap().header.view + 1;
+                                // intram in urmatorul view pe baza view-ului propus de leader
+                                error!("(v={}, r={}) Comitem view-ul {} si avansam la view-ul liderului {}", self.view.current, round, self.view.current, leader_view);
+                                 // TODO: comitem certificatul leader-ului is istoricul lui
+
+                                self.view.current = leader_view;
+                            } else {
+                                error!("(v={}, r={}) Marcam complaint", self.view.current, round);
+                                self.view.current = -self.view.current;
+                            }
+                        } else {
+                             // vedem daca avem 2f+1 complaints
+                            let mut votes = 0;
+                            let mut latest_view = self.view.current;
+                            for certificate in &parents {
+                                let stake = self.committee.stake(&certificate.origin());
+                                // daca intram tarziu in joc, certificatul va fi de la un view mai mare
+                                // si trebuie sa-l preluam si noi
+                                if certificate.header.view.abs() >= self.view.current.abs() {
+                                    votes += stake;
+                                    latest_view = certificate.header.view.abs();
+                                }
+                            }
+
+                            if votes >= self.committee.quorum_threshold() {
+                                error!("(v={}, r={}) Avem 2f+1 complaints, avansam view-ul la {}", self.view.current.abs(), round, latest_view + 1);
+                                self.view.current = latest_view + 1;
+                            } else {
+                                // TODO: de cercetat asta, ar trebui sa se intample ?
+
+                                // aici putem ajunge daca nodul intra mai tarziu, caz in care nu va putea face quorum nici pe voturi nici pe complaints
+                                // setam view-ul primit
+                                // error!("(v={}, r={}) Nu avem nici lider nici complaints, setam view-ul {}", self.view.current.abs(), self.view.round, view);
+                                // self.view.current = view;
+                                for certificate in &parents {
+                                    error!("(v={}, r={}) CHV={}", self.view.current, round, certificate.header.view);
+                                }
+
+                                panic!("(v={}, r={}) Not enough votes: votes({}) <= quorum_threshold({})",
+                                    self.view.current.abs(), round,
+                                    votes, self.committee.quorum_threshold()
+                                );
+                            }
+                        }
+                    } else {
+                        debug!("Nu avem istoric");
                     }
+
+                    // Advance to the next round.
+                    self.view.round += 1;
                 }
                 Some((digest, worker_id)) = self.rx_workers.recv() => {
                     self.payload_size += digest.size();
@@ -152,14 +194,22 @@ impl Proposer {
 
     async fn make_header(&mut self) {
         // Make a new header.
-        let header = Header::new(
+        let mut header = Header::new(
             self.authority.clone(),
-            self.round,
+            self.view.round,
+            self.view.current,
             0 as Epoch,
             self.digests.drain(..).collect(),
             self.last_parents.drain(..).map(|x| x.hash()).collect(),
         );
-        debug!("Created {:?}", header);
+
+        #[cfg(feature = "benchmark")]
+        for digest in header.payload.keys() {
+            // NOTE: This log entry is used to compute performance.
+            info!("Created {} -> {:?}", header, digest);
+        }
+
+        error!("(v={}, r={}) Broadcast header cu v={}", self.view.current.abs(), self.view.round, header.view);
 
         // Send the new header to the `Core` that will broadcast and process it.
         self.tx_core
@@ -168,53 +218,8 @@ impl Proposer {
             .expect("Failed to send header");
     }
 
-    /// Update the last leader.
-    fn update_leader(&mut self) -> bool {
-        let leader_name = self.committee.leader(self.round as usize);
-        self.last_leader = self
-            .last_parents
-            .iter()
-            .find(|x| x.origin() == leader_name)
-            .cloned();
-
-        if let Some(leader) = self.last_leader.as_ref() {
-            debug!("Got leader {} for round {}", leader.origin(), self.round);
-        }
-
-        self.last_leader.is_some()
-    }
-
-    /// Check whether if we have (i) 2f+1 votes for the leader, (ii) f+1 nodes not voting for the leader,
-    /// or (iii) there is no leader to vote for.
-    fn enough_votes(&self) -> bool {
-        let leader = match &self.last_leader {
-            Some(x) => x.hash(),
-            None => return true,
-        };
-
-        let mut votes_for_leader = 0;
-        let mut no_votes = 0;
-        for certificate in &self.last_parents {
-            let stake = self.committee.stake(&certificate.origin());
-            if certificate.header.parents.contains(&leader) {
-                votes_for_leader += stake;
-            } else {
-                no_votes += stake;
-            }
-        }
-
-        let mut enough_votes = votes_for_leader >= self.committee.quorum_threshold();
-        if log_enabled!(log::Level::Debug) && enough_votes {
-            if let Some(leader) = self.last_leader.as_ref() {
-                debug!(
-                    "Got enough support for leader {} at round {}",
-                    leader.origin(),
-                    self.round
-                );
-            }
-        }
-        enough_votes |= no_votes >= self.committee.validity_threshold();
-        enough_votes
+    fn elect_leader(&mut self) -> (Pubkey, String) {
+        self.committee.leader(self.view.current as usize)
     }
 }
 

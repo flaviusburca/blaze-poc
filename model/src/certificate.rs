@@ -69,9 +69,9 @@ impl Certificate {
         committee
             .authorities
             .keys()
-            .map(|name| Self {
+            .map(|pubkey| Self {
                 header: Header {
-                    author: *name,
+                    author: *pubkey,
                     ..Header::default()
                 },
                 ..Self::default()
@@ -136,7 +136,7 @@ impl fmt::Debug for Certificate {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(
             f,
-            "{}: C{}({}, {})",
+            "C(id={}, round={}, origin={}, header={})",
             self.hash(),
             self.round(),
             self.origin(),
@@ -158,6 +158,7 @@ impl PartialEq for Certificate {
 pub struct Header {
     pub author: Pubkey,
     pub round: Round,
+    pub view: i64,
     pub epoch: Epoch,
     pub created_at: u64,
     pub payload: BTreeMap<Hash, WorkerId>,
@@ -170,6 +171,7 @@ impl Header {
     pub fn new(
         author: Keypair,
         round: Round,
+        view: i64,
         epoch: Epoch,
         payload: BTreeMap<Hash, WorkerId>,
         parents: BTreeSet<Hash>,
@@ -182,6 +184,7 @@ impl Header {
         let header = Self {
             author: author.pubkey(),
             round,
+            view,
             epoch,
             created_at,
             payload,
@@ -259,7 +262,7 @@ impl fmt::Debug for Header {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(
             f,
-            "{}: B{}({}, {})",
+            "H(id={}, round={}, author={}, payload={})",
             self.id,
             self.round,
             self.author,

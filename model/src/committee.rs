@@ -37,6 +37,7 @@ pub struct ExecutorAddresses {
 pub struct Authority {
     /// The voting power of this authority.
     pub stake: Stake,
+    pub name: String,
     /// The network addresses of the primary.
     pub primary: PrimaryAddresses,
     /// Map of workers' id and their network addresses.
@@ -94,10 +95,12 @@ impl Committee {
     }
 
     /// Returns a leader node as a weighted choice seeded by the provided integer
-    pub fn leader(&self, seed: usize) -> Pubkey {
+    pub fn leader(&self, seed: usize) -> (Pubkey, String) {
         let mut keys: Vec<_> = self.authorities.keys().cloned().collect();
         keys.sort();
-        keys[seed % self.size()]
+        let leader = keys[seed % self.size()];
+        let name = self.authorities.get(&leader).unwrap().name.clone();
+        (leader, name)
     }
 
     /// Returns the primary address of the target primary.
@@ -179,6 +182,7 @@ impl Committee {
             pubkey,
             Authority {
                 stake: 100,
+                name: "".to_string(),
                 primary: PrimaryAddresses {
                     primary_to_primary: format!("0.0.0.0:{}", base_port).parse().unwrap(),
                     worker_to_primary: format!("0.0.0.0:{}", base_port + 1).parse().unwrap(),

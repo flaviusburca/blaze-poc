@@ -74,13 +74,7 @@ impl PrimarySynchronizer {
             //         to workers #1 (rather than workers #0). Also, clients will never be able to retrieve batch
             //         X as they will be querying worker #1.
             let key = [digest.as_ref(), &worker_id.to_le_bytes()].concat();
-            if self
-                .store
-                .read(key)
-                .map_err(|e| DagError::StoreError(e.to_string()))
-                .await?
-                .is_none()
-            {
+            if self.store.read(key).map_err(|e| DagError::StoreError(e.to_string())).await?.is_none() {
                 missing.insert(digest.clone(), *worker_id);
             }
         }
@@ -103,17 +97,17 @@ impl PrimarySynchronizer {
         let mut missing = Vec::new();
         let mut parents = Vec::new();
         for hash in &header.parents {
-            if let Some(genesis) = self.genesis.iter().find(|(x, _)| x == hash).map(|(_, x)| x) {
+            if let Some(genesis) = self
+                .genesis
+                .iter()
+                .find(|(x, _)| x == hash)
+                .map(|(_, x)| x)
+            {
                 parents.push(genesis.clone());
                 continue;
             }
 
-            match self
-                .store
-                .read(hash.to_vec())
-                .map_err(|e| StoreError(e.to_string()))
-                .await?
-            {
+            match self.store.read(hash.to_vec()).map_err(|e| StoreError(e.to_string())).await? {
                 Some(certificate) => parents.push(bincode::deserialize(&certificate)?),
                 None => missing.push(hash.clone()),
             };
@@ -138,13 +132,7 @@ impl PrimarySynchronizer {
                 continue;
             }
 
-            if self
-                .store
-                .read(digest.to_vec())
-                .map_err(|e| StoreError(e.to_string()))
-                .await?
-                .is_none()
-            {
+            if self.store.read(digest.to_vec()).map_err(|e| StoreError(e.to_string())).await?.is_none() {
                 self.tx_certificate_waiter
                     .send(certificate.clone())
                     .await
