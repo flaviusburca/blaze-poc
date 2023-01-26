@@ -29,7 +29,7 @@ use {
     },
     tokio::sync::mpsc::{Receiver, Sender},
 };
-use mundis_model::view::View;
+use mundis_model::View;
 
 #[derive()]
 pub struct PrimaryCore {
@@ -57,7 +57,7 @@ pub struct PrimaryCore {
     /// Output all certificates to the consensus layer.
     tx_consensus: Sender<Certificate>,
     /// Send valid a quorum of certificates' ids to the `Proposer` (along with their round).
-    tx_proposer: Sender<(Vec<Certificate>, Round, i64)>,
+    tx_proposer: Sender<(Vec<Certificate>, Round, View)>,
 
     /// The last garbage collected round.
     gc_round: Round,
@@ -91,7 +91,7 @@ impl PrimaryCore {
         rx_certificate_waiter: Receiver<Certificate>,
         rx_proposer: Receiver<Header>,
         tx_consensus: Sender<Certificate>,
-        tx_proposer: Sender<(Vec<Certificate>, Round, i64)>,
+        tx_proposer: Sender<(Vec<Certificate>, Round, View)>,
     ) {
         tokio::spawn(async move {
             Self {

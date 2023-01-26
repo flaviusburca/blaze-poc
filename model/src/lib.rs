@@ -10,9 +10,9 @@ pub mod pubkey;
 pub mod sanitize;
 pub mod signature;
 pub mod transaction;
-pub mod view;
 pub mod vote;
 
 pub type Stake = u32;
 pub type WorkerId = u32;
 pub type Round = u64;
+pub type View = i64;

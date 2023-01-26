@@ -9,7 +9,6 @@ use {
         keypair::Keypair,
         pubkey::Pubkey,
         signature::Signer,
-        view::View,
         Round, WorkerId,
     },
     std::{cmp::Ordering, time::Duration},
@@ -18,6 +17,8 @@ use {
         time::{sleep, Instant, Sleep},
     },
 };
+use mundis_model::View;
+
 /// The proposer creates new headers and sends them to the core for broadcasting and further processing.
 pub struct Proposer {
     /// The public key of this primary.
@@ -30,12 +31,14 @@ pub struct Proposer {
     max_header_delay: u64,
 
     /// Receives the parents to include in the next header (along with their round number).
-    rx_core: Receiver<(Vec<Certificate>, Round, i64)>,
+    rx_core: Receiver<(Vec<Certificate>, Round, View)>,
     /// Receives the batches' digests from our workers.
     rx_workers: Receiver<(Hash, WorkerId)>,
     /// Sends newly created headers to the `Core`.
     tx_core: Sender<Header>,
 
+    // The current round
+    round: Round,
     /// The current view
     view: View,
 
@@ -67,7 +70,8 @@ impl Proposer {
                 rx_core,
                 rx_workers,
                 tx_core,
-                view: View::new(1),
+                view: 1,
+                round: 1,
                 last_parents: genesis,
                 digests: Vec::with_capacity(2 * header_size),
                 payload_size: 0,
@@ -79,7 +83,7 @@ impl Proposer {
 
     // Main loop listening to incoming messages.
     pub async fn run(&mut self) {
-        debug!("Dag starting at view {} and round {}", self.view.current, self.view.round);
+        debug!("Dag starting at view {} and round {}", self.view, self.round);
 
         let timer = sleep(Duration::from_millis(self.max_header_delay));
         tokio::pin!(timer);
@@ -105,81 +109,92 @@ impl Proposer {
             tokio::select! {
                 Some((parents, round, view)) = self.rx_core.recv() => {
                     // Compare the parents' round number with our current round.
-                    if round < self.view.round || view < self.view.current {
+                    if round < self.round {
                         continue;
                     }
 
-                     // Signal that we have enough parent certificates to propose a new header.
-                    self.last_parents = parents.to_owned();
+                    if view < self.view {
+                        // Advance to the next round.
+                        self.round += 1;
+
+                        // Signal that we have enough parent certificates to propose a new header.
+                        self.last_parents = parents;
+
+                        continue;
+                    }
 
                     error!("View={}, Round={}, enough_parents={}, enough_digests={}, timer_expired={}",
-                        self.view.current.abs(), round, enough_parents, enough_digests, timer_expired
+                        self.view.abs(), round, enough_parents, enough_digests, timer_expired
                     );
 
                     // doar daca avem istoric
                     if !parents.is_empty() {
-                        if self.view.current >= 0 {
+                        if self.view >= 0 {
                             // daca view-ul curent nu este complain, alegem leader
-                            (self.view.leader, self.view.leader_name) = self.elect_leader();
-                            error!("(v={}, r={}) elected leader={}", self.view.current, round, self.view.leader_name);
+                            let (leader_key, leader_name) = self.elect_leader();
+                            error!("(v={}, r={}) elected leader={}", self.view, round, leader_name);
 
                             // cautam certificatul leader-ului
                             let leader_certificate = parents
                                 .iter()
-                                .find(|x| (x.header.view >= self.view.current) && (x.origin() == self.view.leader))
+                                .find(|x| (x.header.view == self.view) && (x.origin() == leader_key))
                                 .clone();
 
                             if leader_certificate.is_some() {
                                 let leader_view = leader_certificate.unwrap().header.view + 1;
                                 // intram in urmatorul view pe baza view-ului propus de leader
-                                error!("(v={}, r={}) Comitem view-ul {} si avansam la view-ul liderului {}", self.view.current, round, self.view.current, leader_view);
+                                error!("(v={}, r={}) Comitem view-ul {} si avansam la view-ul liderului {}", self.view, round, self.view, leader_view);
                                  // TODO: comitem certificatul leader-ului is istoricul lui
 
-                                self.view.current = leader_view;
+                                self.view = leader_view;
                             } else {
-                                error!("(v={}, r={}) Marcam complaint", self.view.current, round);
-                                self.view.current = -self.view.current;
+                                error!("(v={}, r={}) Marcam complaint", self.view, round);
+                                self.view = -self.view;
                             }
                         } else {
                              // vedem daca avem 2f+1 complaints
                             let mut votes = 0;
-                            let mut latest_view = self.view.current;
+                            let mut latest_view = self.view;
                             for certificate in &parents {
                                 let stake = self.committee.stake(&certificate.origin());
                                 // daca intram tarziu in joc, certificatul va fi de la un view mai mare
                                 // si trebuie sa-l preluam si noi
-                                if certificate.header.view.abs() >= self.view.current.abs() {
+                                if certificate.header.view.abs() >= self.view.abs() {
                                     votes += stake;
                                     latest_view = certificate.header.view.abs();
                                 }
                             }
 
                             if votes >= self.committee.quorum_threshold() {
-                                error!("(v={}, r={}) Avem 2f+1 complaints, avansam view-ul la {}", self.view.current.abs(), round, latest_view + 1);
-                                self.view.current = latest_view + 1;
+                                error!("(v={}, r={}) Avem 2f+1 complaints, avansam view-ul la {}", self.view.abs(), round, latest_view + 1);
+                                self.view = latest_view + 1;
                             } else {
                                 // TODO: de cercetat asta, ar trebui sa se intample ?
+                                // Raspuns: da, se intampla
 
                                 // aici putem ajunge daca nodul intra mai tarziu, caz in care nu va putea face quorum nici pe voturi nici pe complaints
                                 // setam view-ul primit
-                                // error!("(v={}, r={}) Nu avem nici lider nici complaints, setam view-ul {}", self.view.current.abs(), self.view.round, view);
-                                // self.view.current = view;
-                                for certificate in &parents {
-                                    error!("(v={}, r={}) CHV={}", self.view.current, round, certificate.header.view);
-                                }
 
-                                panic!("(v={}, r={}) Not enough votes: votes({}) <= quorum_threshold({})",
-                                    self.view.current.abs(), round,
-                                    votes, self.committee.quorum_threshold()
-                                );
+                                error!("(v={}, r={}) Nu avem nici lider nici complaints, setam view-ul {}", self.view.abs(), round, view);
+                                self.view = view;
+
+                                // for certificate in &parents {
+                                //     error!("(v={}, r={}) CHV={}", self.view, round, certificate.header.view);
+                                // }
+                                //
+                                // panic!("(v={}, r={}) Not enough votes: votes({}) <= quorum_threshold({})",
+                                //     self.view.abs(), round,
+                                //     votes, self.committee.quorum_threshold()
+                                // );
                             }
                         }
-                    } else {
-                        debug!("Nu avem istoric");
                     }
 
                     // Advance to the next round.
-                    self.view.round += 1;
+                    self.round += 1;
+
+                    // Signal that we have enough parent certificates to propose a new header.
+                    self.last_parents = parents;
                 }
                 Some((digest, worker_id)) = self.rx_workers.recv() => {
                     self.payload_size += digest.size();
@@ -196,8 +211,8 @@ impl Proposer {
         // Make a new header.
         let mut header = Header::new(
             self.authority.clone(),
-            self.view.round,
-            self.view.current,
+            self.round,
+            self.view,
             0 as Epoch,
             self.digests.drain(..).collect(),
             self.last_parents.drain(..).map(|x| x.hash()).collect(),
@@ -209,7 +224,7 @@ impl Proposer {
             info!("Created {} -> {:?}", header, digest);
         }
 
-        error!("(v={}, r={}) Broadcast header cu v={}", self.view.current.abs(), self.view.round, header.view);
+        error!("(v={}, r={}) Broadcast header cu v={}", self.view.abs(), self.round, header.view);
 
         // Send the new header to the `Core` that will broadcast and process it.
         self.tx_core
@@ -219,7 +234,7 @@ impl Proposer {
     }
 
     fn elect_leader(&mut self) -> (Pubkey, String) {
-        self.committee.leader(self.view.current as usize)
+        self.committee.leader(self.view as usize)
     }
 }
 

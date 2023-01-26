@@ -16,6 +16,7 @@ use {
     },
     thiserror::Error,
 };
+use crate::View;
 
 pub type DagResult<T> = Result<T, DagError>;
 
@@ -158,7 +159,7 @@ impl PartialEq for Certificate {
 pub struct Header {
     pub author: Pubkey,
     pub round: Round,
-    pub view: i64,
+    pub view: View,
     pub epoch: Epoch,
     pub created_at: u64,
     pub payload: BTreeMap<Hash, WorkerId>,
@@ -171,7 +172,7 @@ impl Header {
     pub fn new(
         author: Keypair,
         round: Round,
-        view: i64,
+        view: View,
         epoch: Epoch,
         payload: BTreeMap<Hash, WorkerId>,
         parents: BTreeSet<Hash>,
