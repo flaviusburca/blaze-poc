@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use anyhow::{Context, Result};
 use tokio::sync::mpsc::channel;
 

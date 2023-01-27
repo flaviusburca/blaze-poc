@@ -1,3 +1,4 @@
+// Copyright(C) Facebook, Inc. and its affiliates.
 use {
     crate::{primary::WorkerPrimaryMessage, worker::SerializedBatchDigestMessage},
     mundis_ledger::Store,

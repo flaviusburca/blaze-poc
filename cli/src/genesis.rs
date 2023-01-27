@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use {
     crate::command::MundisCommand,
     anyhow::anyhow,

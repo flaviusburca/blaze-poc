@@ -1,3 +1,5 @@
+// Copyright(C) Mundis.
+
 use {
     crate::{hash::Hash, keypair::Keypair, pubkey::Pubkey},
     ed25519_dalek::SignatureError,

@@ -1,3 +1,5 @@
+// Copyright(C) Mundis.
+
 //! A trait for sanitizing values and members of over the wire messages.
 
 use thiserror::Error;

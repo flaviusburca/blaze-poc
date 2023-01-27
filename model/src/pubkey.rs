@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use serde::Deserializer;
 use {
     serde::{Deserialize, Serialize},

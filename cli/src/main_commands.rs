@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use {
     crate::{genesis_commands::GenesisCommand, keytool_commands::KeytoolCommand},
     clap::*,

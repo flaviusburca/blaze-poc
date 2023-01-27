@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use {
     crate::{account::Account, hash::Hash},
     serde::{Deserialize, Serialize},

@@ -1,3 +1,4 @@
+// Copyright(C) Mundis
 use {
     crate::pubkey::Pubkey,
     serde::{Deserialize, Serialize},

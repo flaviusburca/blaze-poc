@@ -1,3 +1,5 @@
+// Copyright(C) Mundis
+
 //! The `logger` module configures `env_logger`
 
 use {

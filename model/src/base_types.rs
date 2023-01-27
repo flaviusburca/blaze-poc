@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 pub type UnixTimestamp = u64;
 pub type ChainId = u8;
 pub type Epoch = u64;

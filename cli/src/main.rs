@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use {clap::Parser, colored::Colorize, mundis_cli::main_commands::MundisCommand};
 
 #[tokio::main]

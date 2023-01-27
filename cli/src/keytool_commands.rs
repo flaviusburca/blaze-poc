@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use {
     anyhow::anyhow,
     bip39::{Language, Mnemonic, MnemonicType, Seed},

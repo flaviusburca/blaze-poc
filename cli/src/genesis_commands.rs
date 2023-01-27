@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use {clap::*, mundis_model::pubkey::Pubkey, std::path::PathBuf};
 
 #[allow(clippy::large_enum_variant)]

@@ -1,3 +1,4 @@
+// Copyright(C) Facebook, Inc. and its affiliates.
 use {
     futures::{future::try_join_all, stream::FuturesUnordered, StreamExt as _},
     log::error,

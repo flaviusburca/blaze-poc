@@ -1,3 +1,4 @@
+// Copyright(C) Facebook, Inc. and its affiliates.
 pub(crate) use implementation::AtomicU64;
 
 #[cfg(target_pointer_width = "64")]

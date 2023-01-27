@@ -1,3 +1,4 @@
+// Copyright(C) Mundis.
 use {
     anyhow::{anyhow, Context, Result},
     clap::*,
