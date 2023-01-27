@@ -118,6 +118,10 @@ impl Certificate {
         self.header.round
     }
 
+    pub fn view(&self) -> View {
+        self.header.view
+    }
+
     pub fn origin(&self) -> Pubkey {
         self.header.author
     }

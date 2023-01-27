@@ -131,6 +131,7 @@ impl Primary {
         store: Store,
         tx_consensus: Sender<Certificate>,
         rx_consensus: Receiver<Certificate>,
+        tx_commit_view: Sender<Certificate>
     ) -> anyhow::Result<()> {
         info!("Starting primary....");
 
@@ -255,6 +256,7 @@ impl Primary {
             /* rx_core */ rx_parents,
             /* rx_workers */ rx_our_digests,
             /* tx_core */ tx_headers,
+            tx_commit_view
         );
 
         // The `Helper` is dedicated to reply to certificates requests from other primaries.

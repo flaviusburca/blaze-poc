@@ -22,17 +22,19 @@ impl Validator {
         let (tx_output, rx_output) = channel::<Certificate>(CHANNEL_CAPACITY);
         let (tx_new_certificates, rx_new_certificates) = channel::<Certificate>(CHANNEL_CAPACITY);
         let (tx_feedback, rx_feedback) = channel::<Certificate>(CHANNEL_CAPACITY);
+        let (tx_commit_view, rx_commit_view) = channel::<Certificate>(CHANNEL_CAPACITY);
 
         let primary_store_path = format!("{}/primary", config.ledger_path);
         let primary_store =
             Store::new(&primary_store_path).context("Could not create the primary ledger store")?;
 
-        Primary::spawn(&config, primary_store, tx_new_certificates, rx_feedback)?;
+        Primary::spawn(&config, primary_store, tx_new_certificates, rx_feedback, tx_commit_view)?;
 
         Consensus::spawn(
             config.initial_committee.clone(),
             50,
             rx_new_certificates,
+            rx_commit_view,
             tx_feedback,
             tx_output,
         );

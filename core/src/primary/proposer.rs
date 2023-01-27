@@ -36,6 +36,7 @@ pub struct Proposer {
     rx_workers: Receiver<(Hash, WorkerId)>,
     /// Sends newly created headers to the `Core`.
     tx_core: Sender<Header>,
+    tx_commit_view: Sender<Certificate>,
 
     // The current round
     round: Round,
@@ -59,6 +60,7 @@ impl Proposer {
         rx_core: Receiver<(Vec<Certificate>, Round, i64)>,
         rx_workers: Receiver<(Hash, WorkerId)>,
         tx_core: Sender<Header>,
+        tx_commit_view: Sender<Certificate>
     ) {
         let genesis = Certificate::genesis(&committee);
         tokio::spawn(async move {
@@ -70,6 +72,7 @@ impl Proposer {
                 rx_core,
                 rx_workers,
                 tx_core,
+                tx_commit_view,
                 view: 1,
                 round: 1,
                 last_parents: genesis,
@@ -127,24 +130,25 @@ impl Proposer {
                         self.view.abs(), round, enough_parents, enough_digests, timer_expired
                     );
 
-                    // doar daca avem istoric
                     if !parents.is_empty() {
                         if self.view >= 0 {
-                            // daca view-ul curent nu este complain, alegem leader
                             let (leader_key, leader_name) = self.elect_leader();
                             error!("(v={}, r={}) elected leader={}", self.view, round, leader_name);
 
-                            // cautam certificatul leader-ului
-                            let leader_certificate = parents
+                            let leader_certificate: Option<&Certificate> = parents
                                 .iter()
-                                .find(|x| (x.header.view == self.view) && (x.origin() == leader_key))
+                                .find(|x| (x.view() == self.view) && (x.origin() == leader_key))
                                 .clone();
 
                             if leader_certificate.is_some() {
                                 let leader_view = leader_certificate.unwrap().header.view + 1;
                                 // intram in urmatorul view pe baza view-ului propus de leader
-                                error!("(v={}, r={}) Comitem view-ul {} si avansam la view-ul liderului {}", self.view, round, self.view, leader_view);
-                                 // TODO: comitem certificatul leader-ului is istoricul lui
+                                debug!("(v={}, r={}) Committing view {} and advancing to leader's proposed view {}",
+                                    self.view, round, self.view, leader_view
+                                );
+                                self.tx_commit_view.send(leader_certificate.unwrap().clone())
+                                    .await
+                                    .expect("Failed to commit certificate");
 
                                 self.view = leader_view;
                             } else {
