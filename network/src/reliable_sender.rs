@@ -4,7 +4,6 @@ use {
     bytes::Bytes,
     futures::{SinkExt, StreamExt},
     log::{info, warn},
-    rand::{rngs::SmallRng, SeedableRng},
     std::{
         cmp::min,
         collections::{HashMap, VecDeque},
@@ -32,8 +31,6 @@ pub type CancelHandler = oneshot::Receiver<Bytes>;
 pub struct ReliableSender {
     /// A map holding the channels to our connections.
     connections: HashMap<SocketAddr, Sender<InnerMessage>>,
-    /// Small RNG just used to shuffle nodes and randomize connections (not crypto related).
-    rng: SmallRng,
 }
 
 /// Simple message used by `ReliableSender` to communicate with its connections.
@@ -68,7 +65,6 @@ impl ReliableSender {
     pub fn new() -> Self {
         Self {
             connections: HashMap::new(),
-            rng: SmallRng::from_entropy(),
         }
     }
 

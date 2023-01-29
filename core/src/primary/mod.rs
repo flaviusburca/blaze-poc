@@ -101,6 +101,7 @@ impl MessageHandler for PrimaryReceiverHandler {
             request => {
                 let pm = request.clone();
                 match request {
+                    #[allow(unused)]
                     PrimaryMessage::Header(header) => {
                         // info!("RECEIVED PrimaryMessage::Header with id={}, round={}", header.id, header.round);
                     }

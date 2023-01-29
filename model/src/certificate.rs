@@ -168,6 +168,7 @@ pub struct Header {
     pub epoch: Epoch,
     pub created_at: u64,
     pub payload: BTreeMap<Hash, WorkerId>,
+    // hashes of certificates from the previous round
     pub parents: BTreeSet<Hash>,
     pub id: Hash,
     pub signature: Signature,

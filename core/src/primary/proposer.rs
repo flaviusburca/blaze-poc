@@ -1,7 +1,6 @@
 // Copyright(C) Mundis
-use log::error;
 use {
-    log::{debug, info, log_enabled, warn},
+    log::debug,
     mundis_model::{
         base_types::Epoch,
         certificate::{Certificate, Header},
@@ -9,13 +8,13 @@ use {
         hash::{Hash, Hashable},
         keypair::Keypair,
         pubkey::Pubkey,
-        signature::Signer,
-        Round, WorkerId,
+        Round,
+        WorkerId,
     },
-    std::{cmp::Ordering, time::Duration},
+    std::time::Duration,
     tokio::{
         sync::mpsc::{Receiver, Sender},
-        time::{sleep, Instant, Sleep},
+        time::{Instant, sleep},
     },
 };
 use mundis_model::View;
@@ -112,6 +111,8 @@ impl Proposer {
 
             tokio::select! {
                 Some((parents, round, view)) = self.rx_core.recv() => {
+                    // at this point the round has 2f+1 certificates
+
                     // Compare the parents' round number with our current round.
                     if round < self.round {
                         continue;
@@ -127,14 +128,14 @@ impl Proposer {
                         continue;
                     }
 
-                    error!("View={}, Round={}, enough_parents={}, enough_digests={}, timer_expired={}",
+                    debug!("View={}, Round={}, enough_parents={}, enough_digests={}, timer_expired={}",
                         self.view.abs(), round, enough_parents, enough_digests, timer_expired
                     );
 
                     if !parents.is_empty() {
                         if self.view >= 0 {
                             let (leader_key, leader_name) = self.elect_leader();
-                            error!("(v={}, r={}) elected leader={}", self.view, round, leader_name);
+                            debug!("(v={}, r={}) Elected leader={}", self.view, round, leader_name);
 
                             let leader_certificate: Option<&Certificate> = parents
                                 .iter()
@@ -143,7 +144,6 @@ impl Proposer {
 
                             if leader_certificate.is_some() {
                                 let leader_view = leader_certificate.unwrap().header.view + 1;
-                                // intram in urmatorul view pe baza view-ului propus de leader
                                 debug!("(v={}, r={}) Committing view {} and advancing to leader's proposed view {}",
                                     self.view, round, self.view, leader_view
                                 );
@@ -153,17 +153,14 @@ impl Proposer {
 
                                 self.view = leader_view;
                             } else {
-                                error!("(v={}, r={}) Marcam complaint", self.view, round);
+                                debug!("(v={}, r={}) Marking a complaint for view {}", self.view, round, self.view);
                                 self.view = -self.view;
                             }
                         } else {
-                             // vedem daca avem 2f+1 complaints
                             let mut votes = 0;
                             let mut latest_view = self.view;
                             for certificate in &parents {
                                 let stake = self.committee.stake(&certificate.origin());
-                                // daca intram tarziu in joc, certificatul va fi de la un view mai mare
-                                // si trebuie sa-l preluam si noi
                                 if certificate.header.view.abs() >= self.view.abs() {
                                     votes += stake;
                                     latest_view = certificate.header.view.abs();
@@ -171,26 +168,11 @@ impl Proposer {
                             }
 
                             if votes >= self.committee.quorum_threshold() {
-                                error!("(v={}, r={}) Avem 2f+1 complaints, avansam view-ul la {}", self.view.abs(), round, latest_view + 1);
-                                self.view = latest_view + 1;
+                                let next_view = latest_view + 1;
+                                debug!("(v={}, r={}) We have 2f+1 complaints, advancing the view to {}", self.view.abs(), round, next_view);
+                                self.view = next_view;
                             } else {
-                                // TODO: de cercetat asta, ar trebui sa se intample ?
-                                // Raspuns: da, se intampla
-
-                                // aici putem ajunge daca nodul intra mai tarziu, caz in care nu va putea face quorum nici pe voturi nici pe complaints
-                                // setam view-ul primit
-
-                                error!("(v={}, r={}) Nu avem nici lider nici complaints, setam view-ul {}", self.view.abs(), round, view);
                                 self.view = view;
-
-                                // for certificate in &parents {
-                                //     error!("(v={}, r={}) CHV={}", self.view, round, certificate.header.view);
-                                // }
-                                //
-                                // panic!("(v={}, r={}) Not enough votes: votes({}) <= quorum_threshold({})",
-                                //     self.view.abs(), round,
-                                //     votes, self.committee.quorum_threshold()
-                                // );
                             }
                         }
                     }
@@ -214,7 +196,7 @@ impl Proposer {
 
     async fn make_header(&mut self) {
         // Make a new header.
-        let mut header = Header::new(
+        let header = Header::new(
             self.authority.clone(),
             self.round,
             self.view,
@@ -229,7 +211,7 @@ impl Proposer {
             info!("Created {} -> {:?}", header, digest);
         }
 
-        error!("(v={}, r={}) Broadcast header cu v={}", self.view.abs(), self.round, header.view);
+        debug!("(v={}, r={}) Broadcast header with v={}", self.view.abs(), self.round, header.view);
 
         // Send the new header to the `Core` that will broadcast and process it.
         self.tx_core

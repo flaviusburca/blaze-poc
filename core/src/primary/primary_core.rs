@@ -1,13 +1,12 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
-use log::info;
 use {
+    async_recursion::async_recursion,
+    bytes::Bytes,
     crate::primary::{
         aggregators::{CertificatesAggregator, VotesAggregator},
         primary_synchronizer::PrimarySynchronizer,
         PrimaryMessage,
     },
-    async_recursion::async_recursion,
-    bytes::Bytes,
     log::{debug, error, warn},
     mundis_ledger::Store,
     mundis_model::{
@@ -16,16 +15,16 @@ use {
         hash::{Hash, Hashable},
         keypair::Keypair,
         pubkey::Pubkey,
+        Round,
         signature::Signer,
         vote::Vote,
-        Round,
     },
     mundis_network::reliable_sender::{CancelHandler, ReliableSender},
     std::{
         collections::{HashMap, HashSet},
         sync::{
-            atomic::{AtomicU64, Ordering},
             Arc,
+            atomic::{AtomicU64, Ordering},
         },
     },
     tokio::sync::mpsc::{Receiver, Sender},
