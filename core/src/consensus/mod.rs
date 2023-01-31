@@ -163,7 +163,7 @@ impl Consensus {
                     let round = certificate.round();
                     let view = certificate.view() - 1;
                     let leader_key = certificate.origin();
-                    debug!("(v={}, r={}) Commit certificate for leader {}", view, round, certificate.origin());
+                    error!("(v={}, r={}) Commit certificate for leader {}", view, round, certificate.origin());
 
                     match state.dag.get(&round).map(|x| x.get(&leader_key)).flatten() {
                         Some(x) => {
@@ -201,7 +201,7 @@ impl Consensus {
                             sequence.push(x);
                         }
 
-                        debug!("\t (v={}, r={}) committed round {}", view, round, leader.round());
+                        error!("\t (v={}, r={}) committed view {}", view, round, leader.view());
                     }
                 }
             }
