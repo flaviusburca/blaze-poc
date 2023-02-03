@@ -6,8 +6,8 @@ use {
         hash::{Hash, Hashable, Hasher},
         keypair::Keypair,
         pubkey::Pubkey,
-        signature::{Signature, Signer},
-        Round, WorkerId,
+        Round,
+        signature::{Signature, Signer}, WorkerId,
     },
     serde::{Deserialize, Serialize},
     std::{
@@ -17,6 +17,7 @@ use {
     },
     thiserror::Error,
 };
+
 use crate::View;
 
 pub type DagResult<T> = Result<T, DagError>;
@@ -63,6 +64,7 @@ pub enum DagError {
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct Certificate {
     pub header: Header,
+    pub meta: View,
     pub votes: Vec<(Pubkey, Signature)>,
 }
 
@@ -76,6 +78,7 @@ impl Certificate {
                     author: *pubkey,
                     ..Header::default()
                 },
+                meta: 0,
                 ..Self::default()
             })
             .collect()
@@ -142,8 +145,9 @@ impl fmt::Debug for Certificate {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         write!(
             f,
-            "C(id={}, round={}, origin={}, header={})",
+            "C(id={}, view={}, round={}, origin={}, header={})",
             self.hash(),
+            self.view(),
             self.round(),
             self.origin(),
             self.header.id
@@ -178,8 +182,6 @@ impl Header {
     pub fn new(
         author: Keypair,
         round: Round,
-        view: View,
-        epoch: Epoch,
         payload: BTreeMap<Hash, WorkerId>,
         parents: BTreeSet<Hash>,
     ) -> Self {
@@ -191,8 +193,8 @@ impl Header {
         let header = Self {
             author: author.pubkey(),
             round,
-            view,
-            epoch,
+            view: 1,
+            epoch: 0,
             created_at,
             payload,
             parents,

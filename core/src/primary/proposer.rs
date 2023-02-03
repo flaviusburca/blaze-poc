@@ -32,7 +32,7 @@ pub struct Proposer {
     max_header_delay: u64,
 
     /// Receives the parents to include in the next header (along with their round number).
-    rx_core: Receiver<(Vec<Certificate>, Round, View)>,
+    rx_core: Receiver<(Vec<Certificate>, Round)>,
     /// Receives the batches' digests from our workers.
     rx_workers: Receiver<(Hash, WorkerId)>,
     /// Sends newly created headers to the `Core`.
@@ -41,8 +41,6 @@ pub struct Proposer {
 
     // The current round
     round: Round,
-    /// The current view
-    view: View,
 
     /// Holds the certificates' ids waiting to be included in the next header.
     last_parents: Vec<Certificate>,
@@ -58,7 +56,7 @@ impl Proposer {
         committee: Committee,
         header_size: usize,
         max_header_delay: u64,
-        rx_core: Receiver<(Vec<Certificate>, Round, i64)>,
+        rx_core: Receiver<(Vec<Certificate>, Round)>,
         rx_workers: Receiver<(Hash, WorkerId)>,
         tx_core: Sender<Header>,
         tx_commit_view: Sender<Certificate>,
@@ -74,7 +72,6 @@ impl Proposer {
                 rx_workers,
                 tx_core,
                 tx_commit_view,
-                view: 1,
                 round: 1,
                 last_parents: genesis,
                 digests: Vec::with_capacity(2 * header_size),
@@ -87,10 +84,7 @@ impl Proposer {
 
     // Main loop listening to incoming messages.
     pub async fn run(&mut self) {
-        error!(
-            "Dag starting at view {} and round {}",
-            self.view, self.round
-        );
+        error!("Dag starting round {}", self.round);
 
         let timer = sleep(Duration::from_millis(self.max_header_delay));
         tokio::pin!(timer);
@@ -114,54 +108,15 @@ impl Proposer {
             }
 
             tokio::select! {
-                Some((parents, round, view)) = self.rx_core.recv() => {
-                    // e posibil sa nu primim certificatul leaderului pt ca agregatorul se opreste la 2f+1 voturi (2/3 stake)
-                    if self.view > 0 {
-                        let leader_view = self.view + 1;
-                        let (leader_key, leader_name) = self.elect_leader(leader_view);
-                        error!("(v={}, r={}) Leader for view {} is {}", self.view, round, leader_view, leader_name);
-
-                        if let Some(leader_certificate) = parents
-                            .iter()
-                            .find(|x| (x.view() == leader_view) && (x.origin() == leader_key))
-                            .clone() {
-                            error!(
-                                "(v={}, r={}) We have the leader's certificate. Advancing to view {}",
-                                self.view, round, leader_view
-                            );
-                             self.tx_commit_view.send(leader_certificate.clone())
-                                    .await
-                                    .expect("Failed to commit certificate");
-                            self.view = leader_view;
-                        } else {
-                            error!("(v={}, r={}) Leader certificate {} not found ! Marking complaint for view {}", self.view, round, leader_name, leader_view);
-                            // mark a complaint
-                            self.view = -leader_view;
-                        }
-                    } else {
-                        let mut votes = 0;
-                        for certificate in &parents {
-                            let stake = self.committee.stake(&certificate.origin());
-                            if certificate.view() == self.view {
-                                votes += stake;
-                            }
-                        }
-
-                        if votes >= self.committee.quorum_threshold() {
-                            error!("(v={}, r={}) We have 2f+1 complaints, advancing the view to {}", self.view, round, self.view.abs());
-                            self.view = self.view.abs();
-                        } else {
-                            error!("(v={}, r={}) catch up with the majority's view {}", self.view, round, view + 1);
-                            self.view = view.abs() + 1;
-                        }
-                    }
-
+                Some((parents, round)) = self.rx_core.recv() => {
                     if round < self.round {
                         continue;
                     }
 
                     // Advance to the next round.
                     self.round = round + 1;
+
+                    // error!("Advancing to round {}", self.round);
 
                     // Signal that we have enough parent certificates to propose a new header.
                     self.last_parents = parents;
@@ -182,30 +137,8 @@ impl Proposer {
         let mut header = Header::new(
             self.authority.clone(),
             self.round,
-            self.view,
-            0 as Epoch,
             self.digests.drain(..).collect(),
             self.last_parents.drain(..).map(|x| x.hash()).collect(),
-        );
-
-        // Elect the leader for the next view
-        if self.view > 0 {
-            let (leader_key, leader_name) = self.elect_leader(self.view + 1);
-            if leader_key == self.authority.pubkey() {
-                error!(
-                    "(v={}, r={}) We are the leader for {}",
-                    self.view,
-                    self.round,
-                    self.view + 1
-                );
-                header.view = self.view + 1;
-            }
-        }
-        error!(
-            "(v={}, r={}) Broadcast header with v={}",
-            self.view,
-            self.round,
-            header.view
         );
 
         #[cfg(feature = "benchmark")]
@@ -219,10 +152,6 @@ impl Proposer {
             .send(header)
             .await
             .expect("Failed to send header");
-    }
-
-    fn elect_leader(&mut self, view: i64) -> (Pubkey, String) {
-        self.committee.leader(view as usize)
     }
 }
 

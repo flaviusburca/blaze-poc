@@ -145,7 +145,7 @@ impl Primary {
         let (tx_headers_loopback, rx_headers_loopback) = channel::<Header>(CHANNEL_CAPACITY);
         let (tx_headers, rx_headers) = channel::<Header>(CHANNEL_CAPACITY);
         let (tx_certificates_loopback, rx_certificates_loopback) = channel::<Certificate>(CHANNEL_CAPACITY);
-        let (tx_parents, rx_parents) = channel::<(Vec<Certificate>, Round, View)>(CHANNEL_CAPACITY);
+        let (tx_parents, rx_parents) = channel::<(Vec<Certificate>, Round)>(CHANNEL_CAPACITY);
 
         // Spawn the network receiver listening to messages from the other primaries.
         let address = config

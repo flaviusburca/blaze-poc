@@ -67,6 +67,8 @@ impl Validator {
             )?;
         }
 
+        println!("Started validator {}", config.identity.pubkey());
+
         loop {
             tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
         }
