@@ -235,14 +235,12 @@ impl PrimaryCore {
 
     #[async_recursion]
     async fn process_certificate(&mut self, certificate: Certificate, timer: &Pin<&mut Sleep>) -> DagResult<()> {
-        // error!(
-        //     "(v={}, r={}) Processing certificate {} with header {} for view {}",
-        //     self.view,
-        //     self.round,
-        //     certificate.hash(),
-        //     certificate.header.id,
-        //     certificate.view()
-        // );
+        debug!(
+            "(v={}, r={}) Processing certificate {}",
+            self.view,
+            self.round,
+            certificate.hash(),
+        );
 
         // Process the header embedded in the certificate if we haven't already voted for it (if we already
         // voted, it means we already processed it). Since this header got certified, we are sure that all
@@ -273,7 +271,7 @@ impl PrimaryCore {
 
         let leader = self.elect_leader(self.view);
         if certificate.meta > self.meta && certificate.origin() == leader {
-            error!("(v={}, r={}) I received the leader {} certificate with meta={}", self.view, self.round, leader, certificate.meta);
+            debug!("(v={}, r={}) received certificate of leader {} with meta={}", self.view, self.round, leader, certificate.meta);
             self.meta = certificate.meta;
         }
 
@@ -313,7 +311,7 @@ impl PrimaryCore {
 
     #[async_recursion]
     async fn process_vote(&mut self, vote: Vote, timer: &Pin<&mut Sleep>) -> DagResult<()> {
-        // debug!("Processing vote {:?}", vote);
+        debug!("Processing vote {:?}", vote);
 
         // Add it to the votes' aggregator and try to make a new certificate.
         if let Some(certificate) =
@@ -325,10 +323,7 @@ impl PrimaryCore {
             if self.last_broadcasted_meta != self.view && self.authority.pubkey() == leader {
                 cert.meta = self.view;
                 self.last_broadcasted_meta = self.view;
-                error!("(v={}, r={}) Broadcast LEADER certificate with meta={}", self.view, self.round, cert.meta);
-            } else {
-                // cert.meta = self.meta;
-                // error!("(v={}, r={}) Broadcast certificate with meta={}", self.view, self.round, cert.meta);
+                debug!("(v={}, r={}) Broadcast LEADER certificate with meta={}", self.view, self.round, cert.meta);
             }
 
             // Broadcast the certificate.
@@ -340,14 +335,13 @@ impl PrimaryCore {
                 .collect();
             let bytes = bincode::serialize(&PrimaryMessage::Certificate(cert.clone()))
                 .expect("Failed to serialize our own certificate");
-            // debug!("RELIABLE BROADCAST PrimaryMessage::Certificate");
 
-            // error!(
-            //     "(r={}) Broadcast certificate {} for view {}",
-            //     cert.round(),
-            //     cert.hash(),
-            //     cert.view()
-            // );
+            debug!(
+                "(r={}) Broadcast certificate {} for view {}",
+                cert.round(),
+                cert.hash(),
+                cert.view()
+            );
 
             let handlers = self.network.broadcast(addresses, Bytes::from(bytes)).await;
             self.cancel_handlers
@@ -411,7 +405,7 @@ impl PrimaryCore {
             .or_insert_with(HashSet::new)
             .insert(header.author)
         {
-            // error!("Voting header {}", header.id);
+            debug!("Voting header {}", header.id);
 
             // Make a vote and send it to the header's creator.
             let vote = Vote::new(header, &self.authority).await;
@@ -436,7 +430,7 @@ impl PrimaryCore {
                     .push(handler);
             }
 
-            if header.view == self.view {
+            if header.meta == self.view {
                 if self.header_aggregator.append(&self.committee, &header)?.is_some() {
                     error!("(r={}) COMMIT view {}", self.round, self.view);
                     self.view = self.view + 1;
@@ -444,9 +438,7 @@ impl PrimaryCore {
                     self.complaint_aggregator = Box::new(ConsensusComplaintsAggregator::new());
                     self.last_committed_round = self.round;
                 }
-            }
-
-            if header.view == -self.view {
+            } else if header.meta == -self.view {
                 if self.complaint_aggregator.append(&self.committee, &header)?.is_some() {
                     error!("(r={}) COMMIT COMPLAINT view {}", self.round, self.view);
                     self.view = self.view + 1;
@@ -457,8 +449,7 @@ impl PrimaryCore {
             }
         }
 
-        if self.last_committed_round > 0 && self.round > self.last_committed_round + 2 {
-            error!("(v={}, r={}) Timer expired", self.view, self.round);
+        if self.round > self.last_committed_round + 2 {
             self.meta = -self.view;
         }
 
@@ -466,16 +457,17 @@ impl PrimaryCore {
     }
 
     async fn process_own_header(&mut self, mut header: Header, timer: &Pin<&mut Sleep>) -> DagResult<()> {
-        // mundis
-        header.view = self.meta;
+        if self.meta != 0 {
+            header.meta = self.meta;
+        }
 
         // Reset the votes aggregator.
         self.current_header = header.clone();
         self.votes_aggregator = VotesAggregator::new();
 
-        error!(
+        debug!(
             "(v={}, r={}) Broadcast header with meta={}",
-            self.view, self.round, header.view
+            self.view, self.round, header.meta
         );
 
         // Broadcast the new header in a reliable manner.

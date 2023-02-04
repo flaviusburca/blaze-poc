@@ -123,7 +123,7 @@ impl Certificate {
     }
 
     pub fn view(&self) -> View {
-        self.header.view
+        self.header.meta
     }
 
     pub fn origin(&self) -> Pubkey {
@@ -168,7 +168,7 @@ impl PartialEq for Certificate {
 pub struct Header {
     pub author: Pubkey,
     pub round: Round,
-    pub view: View,
+    pub meta: View,
     pub epoch: Epoch,
     pub created_at: u64,
     pub payload: BTreeMap<Hash, WorkerId>,
@@ -193,7 +193,7 @@ impl Header {
         let header = Self {
             author: author.pubkey(),
             round,
-            view: 1,
+            meta: 0,
             epoch: 0,
             created_at,
             payload,
