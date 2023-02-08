@@ -36,7 +36,6 @@ pub struct Proposer {
     rx_workers: Receiver<(Hash, WorkerId)>,
     /// Sends newly created headers to the `Core`.
     tx_core: Sender<Header>,
-    tx_commit_view: Sender<Certificate>,
 
     // The current round
     round: Round,
@@ -58,7 +57,6 @@ impl Proposer {
         rx_core: Receiver<(Vec<Certificate>, Round)>,
         rx_workers: Receiver<(Hash, WorkerId)>,
         tx_core: Sender<Header>,
-        tx_commit_view: Sender<Certificate>,
     ) {
         let genesis = Certificate::genesis(&committee);
         tokio::spawn(async move {
@@ -70,7 +68,6 @@ impl Proposer {
                 rx_core,
                 rx_workers,
                 tx_core,
-                tx_commit_view,
                 round: 1,
                 last_parents: genesis,
                 digests: Vec::with_capacity(2 * header_size),
@@ -83,8 +80,6 @@ impl Proposer {
 
     // Main loop listening to incoming messages.
     pub async fn run(&mut self) {
-        error!("Dag starting round {}", self.round);
-
         let timer = sleep(Duration::from_millis(self.max_header_delay));
         tokio::pin!(timer);
 
@@ -114,8 +109,6 @@ impl Proposer {
 
                     // Advance to the next round.
                     self.round = round + 1;
-
-                    // error!("Advancing to round {}", self.round);
 
                     // Signal that we have enough parent certificates to propose a new header.
                     self.last_parents = parents;

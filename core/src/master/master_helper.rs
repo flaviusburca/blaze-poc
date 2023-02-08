@@ -11,7 +11,7 @@ use {
 use mundis_model::certificate::Certificate;
 
 /// A task dedicated to help other authorities by replying to their certificates requests.
-pub struct PrimaryHelper {
+pub struct MasterHelper {
     /// The committee information.
     committee: Committee,
     /// The persistent storage.
@@ -22,7 +22,7 @@ pub struct PrimaryHelper {
     network: SimpleSender,
 }
 
-impl PrimaryHelper {
+impl MasterHelper {
     pub fn spawn(
         committee: Committee,
         store: Store,

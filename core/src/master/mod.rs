@@ -4,8 +4,8 @@ use {
         garbage_collector::GarbageCollector,
         header_waiter::{HeaderWaiter, HeaderWaiterMessage},
         payload_receiver::PayloadReceiver,
-        master_core::PrimaryCore,
-        master_helper::PrimaryHelper,
+        master_core::MasterCore,
+        master_helper::MasterHelper,
         master_synchronizer::MasterSynchronizer,
         proposer::Proposer,
     },
@@ -42,6 +42,7 @@ mod master_core;
 mod master_helper;
 mod master_synchronizer;
 mod proposer;
+mod state;
 
 /// The default channel capacity for each channel of the primary.
 pub const CHANNEL_CAPACITY: usize = 1_000;
@@ -130,9 +131,7 @@ impl MasterNode {
     pub fn spawn(
         config: &ValidatorConfig,
         store: Store,
-        tx_consensus: Sender<Certificate>,
-        rx_consensus: Receiver<Certificate>,
-        tx_commit_view: Sender<Certificate>
+        tx_output: Sender<Certificate>,
     ) -> anyhow::Result<()> {
         info!("Starting primary....");
 
@@ -146,6 +145,7 @@ impl MasterNode {
         let (tx_headers, rx_headers) = channel::<Header>(CHANNEL_CAPACITY);
         let (tx_certificates_loopback, rx_certificates_loopback) = channel::<Certificate>(CHANNEL_CAPACITY);
         let (tx_parents, rx_parents) = channel::<(Vec<Certificate>, Round)>(CHANNEL_CAPACITY);
+        let (tx_gc, rx_gc) = channel::<Certificate>(CHANNEL_CAPACITY);
 
         // Spawn the network receiver listening to messages from the other primaries.
         let address = config
@@ -198,7 +198,7 @@ impl MasterNode {
         let consensus_round = Arc::new(AtomicU64::new(0));
 
         // The `Core` receives and handles headers, votes, and certificates from the other primaries.
-        PrimaryCore::spawn(
+        MasterCore::spawn(
             config.identity.clone(),
             config.initial_committee.clone(),
             store.clone(),
@@ -209,8 +209,8 @@ impl MasterNode {
             /* rx_header_waiter */ rx_headers_loopback,
             /* rx_certificate_waiter */ rx_certificates_loopback,
             /* rx_proposer */ rx_headers,
-            tx_consensus,
             /* tx_proposer */ tx_parents,
+            /* tx_gc */ tx_gc,
         );
 
         // Keeps track of the latest consensus round and allows other tasks to clean up their their internal state
@@ -218,7 +218,7 @@ impl MasterNode {
             &config.identity.pubkey(),
             &config.initial_committee,
             consensus_round.clone(),
-            rx_consensus,
+            rx_gc,
         );
 
         // Receives batch digests from other workers. They are only used to validate headers.
@@ -257,13 +257,12 @@ impl MasterNode {
             /* rx_core */ rx_parents,
             /* rx_workers */ rx_our_digests,
             /* tx_core */ tx_headers,
-            tx_commit_view
         );
 
         // The `Helper` is dedicated to reply to certificates requests from other primaries.
-        PrimaryHelper::spawn(config.initial_committee.clone(), store, rx_cert_requests);
+        MasterHelper::spawn(config.initial_committee.clone(), store, rx_cert_requests);
 
-        info!("Primary successfully started");
+        info!("Master node successfully started");
 
         Ok(())
     }

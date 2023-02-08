@@ -2,7 +2,6 @@
 use anyhow::{Context, Result};
 use tokio::sync::mpsc::channel;
 
-use mundis_core::consensus::Consensus;
 use mundis_core::executor::Executor;
 use mundis_core::master::MasterNode;
 use mundis_core::worker::WorkerNode;
@@ -21,24 +20,12 @@ impl Validator {
     pub async fn start_validator(config: &ValidatorConfig) -> Result<Validator> {
         // Channels the sequence of certificates.
         let (tx_output, rx_output) = channel::<Certificate>(CHANNEL_CAPACITY);
-        let (tx_new_certificates, rx_new_certificates) = channel::<Certificate>(CHANNEL_CAPACITY);
-        let (tx_feedback, rx_feedback) = channel::<Certificate>(CHANNEL_CAPACITY);
-        let (tx_commit_view, rx_commit_view) = channel::<Certificate>(CHANNEL_CAPACITY);
 
         let primary_store_path = format!("{}/primary", config.ledger_path);
         let primary_store =
             Store::new(&primary_store_path).context("Could not create the primary ledger store")?;
 
-        MasterNode::spawn(&config, primary_store, tx_new_certificates, rx_feedback, tx_commit_view)?;
-
-        Consensus::spawn(
-            config.initial_committee.clone(),
-            50,
-            rx_new_certificates,
-            rx_commit_view,
-            tx_feedback,
-            tx_output,
-        );
+        MasterNode::spawn(&config, primary_store, tx_output)?;
 
         let executor_store_path = format!("{}/executor", config.ledger_path);
         let executor_store = Store::new(&executor_store_path)

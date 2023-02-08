@@ -38,13 +38,12 @@ use {
     tokio::sync::mpsc::{Receiver, Sender},
 };
 use crate::master::aggregators::{ConsensusComplaintsAggregator, ConsensusVotesAggregator};
+use crate::master::state::State;
 
-const CONSENSUS_TIMER_MS: u64 = 1000;
-
-type Dag = HashMap<Round, HashMap<Pubkey, (Hash, Certificate)>>;
+const TIMEOUT_NUM_ROUNDS: u64 = 2;
 
 #[derive()]
-pub struct PrimaryCore {
+pub struct MasterCore {
     /// The keypair of this primary.
     authority: Keypair,
     /// The committee information.
@@ -66,8 +65,6 @@ pub struct PrimaryCore {
     rx_certificate_waiter: Receiver<Certificate>,
     /// Receives our newly created headers from the `Proposer`.
     rx_proposer: Receiver<Header>,
-    /// Output all certificates to the consensus layer.
-    tx_consensus: Sender<Certificate>,
     /// Send valid a quorum of certificates' ids to the `Proposer` (along with their round).
     tx_proposer: Sender<(Vec<Certificate>, Round)>,
 
@@ -88,17 +85,22 @@ pub struct PrimaryCore {
     /// Keeps the cancel handlers of the messages we sent.
     cancel_handlers: HashMap<Round, Vec<CancelHandler>>,
 
+    /// The genesis certificates.
+    genesis: Vec<Certificate>,
+    // Send the sequence of certificates in the right order to the Garbage Collector.
+    tx_gc: Sender<Certificate>,
+
     round: Round,
     view: View,
     meta: View,
-    dag: Dag,
+    state: State,
     last_broadcasted_meta: View,
     header_aggregator: Box<ConsensusVotesAggregator>,
     complaint_aggregator: Box<ConsensusComplaintsAggregator>,
-    last_committed_round: Round
+    last_view_round: Round
 }
 
-impl PrimaryCore {
+impl MasterCore {
     #[allow(clippy::too_many_arguments)]
     pub fn spawn(
         authority: Keypair,
@@ -111,14 +113,10 @@ impl PrimaryCore {
         rx_header_waiter: Receiver<Header>,
         rx_certificate_waiter: Receiver<Certificate>,
         rx_proposer: Receiver<Header>,
-        tx_consensus: Sender<Certificate>,
         tx_proposer: Sender<(Vec<Certificate>, Round)>,
+        tx_gc: Sender<Certificate>
     ) {
         let genesis = Certificate::genesis(&committee);
-        let genesis = genesis
-            .into_iter()
-            .map(|x| (x.origin(), (x.hash(), x)))
-            .collect::<HashMap<_, _>>();
 
         tokio::spawn(async move {
             Self {
@@ -132,7 +130,6 @@ impl PrimaryCore {
                 rx_header_waiter,
                 rx_certificate_waiter,
                 rx_proposer,
-                tx_consensus,
                 tx_proposer,
                 gc_round: 0,
                 last_voted: HashMap::with_capacity(2 * gc_depth as usize),
@@ -142,15 +139,16 @@ impl PrimaryCore {
                 certificates_aggregators: HashMap::with_capacity(2 * gc_depth as usize),
                 network: ReliableSender::new(),
                 cancel_handlers: HashMap::with_capacity(2 * gc_depth as usize),
-
+                genesis: genesis.clone(),
+                tx_gc,
                 round: 1,
                 view: 1,
                 meta: 0,
-                dag: [(0, genesis)].iter().cloned().collect(),
                 last_broadcasted_meta: 0,
                 header_aggregator: Box::new(ConsensusVotesAggregator::new()),
                 complaint_aggregator: Box::new(ConsensusComplaintsAggregator::new()),
-                last_committed_round: 0
+                last_view_round: 0,
+                state: State::new(genesis)
             }
             .run()
             .await;
@@ -159,9 +157,7 @@ impl PrimaryCore {
 
     // Main loop listening to incoming messages.
     pub async fn run(&mut self) {
-        // and start the timer
-        let timer = sleep(Duration::from_millis(CONSENSUS_TIMER_MS));
-        tokio::pin!(timer);
+        // self.state.dump(Some("\nGENESIS ".to_string()));
 
         loop {
             let result = tokio::select! {
@@ -170,20 +166,20 @@ impl PrimaryCore {
                     match message {
                         PrimaryMessage::Header(header) => {
                             match self.sanitize_header(&header) {
-                                Ok(()) => self.process_header(&header, &timer).await,
+                                Ok(()) => self.process_header(&header).await,
                                 error => error
                             }
 
                         },
                         PrimaryMessage::Vote(vote) => {
                             match self.sanitize_vote(&vote) {
-                                Ok(()) => self.process_vote(vote, &timer).await,
+                                Ok(()) => self.process_vote(vote).await,
                                 error => error
                             }
                         },
                         PrimaryMessage::Certificate(certificate) => {
                             match self.sanitize_certificate(&certificate) {
-                                Ok(()) =>  self.process_certificate(certificate, &timer).await,
+                                Ok(()) =>  self.process_certificate(certificate).await,
                                 error => error
                             }
                         },
@@ -193,20 +189,15 @@ impl PrimaryCore {
 
                 // We receive here loopback headers from the `HeaderWaiter`. Those are headers for which we interrupted
                 // execution (we were missing some of their dependencies) and we are now ready to resume processing.
-                Some(header) = self.rx_header_waiter.recv() => self.process_header(&header, &timer).await,
+                Some(header) = self.rx_header_waiter.recv() => self.process_header(&header).await,
 
                 // We receive here loopback certificates from the `CertificateWaiter`. Those are certificates for which
                 // we interrupted execution (we were missing some of their ancestors) and we are now ready to resume
                 // processing.
-                Some(certificate) = self.rx_certificate_waiter.recv() => self.process_certificate(certificate, &timer).await,
+                Some(certificate) = self.rx_certificate_waiter.recv() => self.process_certificate(certificate).await,
 
                 // We also receive here our new headers created by the `Proposer`.
-                Some(header) = self.rx_proposer.recv() => self.process_own_header(header, &timer).await,
-
-                () = &mut timer => {
-                    // do nothing
-                    Ok(())
-                }
+                Some(header) = self.rx_proposer.recv() => self.process_own_header(header).await,
             };
 
             match result {
@@ -233,7 +224,7 @@ impl PrimaryCore {
     }
 
     #[async_recursion]
-    async fn process_certificate(&mut self, certificate: Certificate, timer: &Pin<&mut Sleep>) -> DagResult<()> {
+    async fn process_certificate(&mut self, certificate: Certificate) -> DagResult<()> {
         debug!(
             "(v={}, r={}) Processing certificate {}",
             self.view,
@@ -251,7 +242,7 @@ impl PrimaryCore {
             .map_or_else(|| false, |x| x.contains(&certificate.header.id))
         {
             // This function may still throw an error if the storage fails.
-            self.process_header(&certificate.header, timer).await?;
+            self.process_header(&certificate.header).await?;
         }
 
         // Ensure we have all the ancestors of this certificate yet. If we don't, the synchronizer will gather
@@ -295,13 +286,16 @@ impl PrimaryCore {
         }
 
         // Add the new certificate to the local storage.
-        self.dag
-            .entry(certificate.round())
-            .or_insert_with(HashMap::new)
-            .insert(certificate.origin(), (certificate.hash(), certificate));
+        let leader_key = self.elect_leader(self.view);
+        if certificate.origin() == leader_key {
+            error!("(r={}, v={}) Adding leader certificate", self.round, self.view);
+        }
 
-        if self.last_committed_round > 0 && self.round > self.last_committed_round + 2 {
-            // error!("(v={}, r={}) Timer expired", self.view, self.round);
+        self.state.add_certificate(certificate);
+
+        // Timeout is in 2 consecutive rounds
+        if self.last_view_round > 0 && self.round > self.last_view_round + TIMEOUT_NUM_ROUNDS {
+            debug!("(r={}, v={}) View timer expired", self.round, self.view);
             self.meta = -self.view;
         }
 
@@ -309,7 +303,7 @@ impl PrimaryCore {
     }
 
     #[async_recursion]
-    async fn process_vote(&mut self, vote: Vote, timer: &Pin<&mut Sleep>) -> DagResult<()> {
+    async fn process_vote(&mut self, vote: Vote) -> DagResult<()> {
         debug!("Processing vote {:?}", vote);
 
         // Add it to the votes' aggregator and try to make a new certificate.
@@ -349,7 +343,7 @@ impl PrimaryCore {
                 .extend(handlers);
 
             // Process the new certificate.
-            self.process_certificate(cert, timer)
+            self.process_certificate(cert)
                 .await
                 .expect("Failed to process valid certificate");
         }
@@ -357,7 +351,7 @@ impl PrimaryCore {
     }
 
     #[async_recursion]
-    async fn process_header(&mut self, header: &Header, timer: &Pin<&mut Sleep>) -> DagResult<()> {
+    async fn process_header(&mut self, header: &Header) -> DagResult<()> {
         // Indicate that we are processing this header.
         self.processing
             .entry(header.round)
@@ -410,7 +404,7 @@ impl PrimaryCore {
             let vote = Vote::new(header, &self.authority).await;
             // info!("Created vote: {:?}", vote);
             if vote.origin == self.authority.pubkey() {
-                self.process_vote(vote, timer)
+                self.process_vote(vote)
                     .await
                     .expect("Failed to process our own vote");
             } else {
@@ -431,31 +425,24 @@ impl PrimaryCore {
 
             if header.meta == self.view {
                 if self.header_aggregator.append(&self.committee, &header)?.is_some() {
-                    error!("(r={}) COMMIT view {}", self.round, self.view);
-                    self.view = self.view + 1;
-                    self.header_aggregator = Box::new(ConsensusVotesAggregator::new());
-                    self.complaint_aggregator = Box::new(ConsensusComplaintsAggregator::new());
-                    self.last_committed_round = self.round;
+                    self.commit_view();
+                    self.advance_view();
                 }
             } else if header.meta == -self.view {
                 if self.complaint_aggregator.append(&self.committee, &header)?.is_some() {
-                    error!("(r={}) COMMIT COMPLAINT view {}", self.round, self.view);
-                    self.view = self.view + 1;
-                    self.header_aggregator = Box::new(ConsensusVotesAggregator::new());
-                    self.complaint_aggregator = Box::new(ConsensusComplaintsAggregator::new());
-                    self.last_committed_round = self.round;
+                    self.advance_view();
                 }
             }
         }
 
-        if self.round > self.last_committed_round + 2 {
+        if self.round > self.last_view_round + TIMEOUT_NUM_ROUNDS {
             self.meta = -self.view;
         }
 
         Ok(())
     }
 
-    async fn process_own_header(&mut self, mut header: Header, timer: &Pin<&mut Sleep>) -> DagResult<()> {
+    async fn process_own_header(&mut self, mut header: Header) -> DagResult<()> {
         if self.meta != 0 {
             header.meta = self.meta;
         }
@@ -486,7 +473,7 @@ impl PrimaryCore {
             .extend(handlers);
 
         // Process the header.
-        self.process_header(&header, timer).await
+        self.process_header(&header).await
     }
 
     fn sanitize_certificate(&mut self, certificate: &Certificate) -> DagResult<()> {
@@ -531,5 +518,28 @@ impl PrimaryCore {
     fn elect_leader(&mut self, view: View) -> Pubkey {
         let (leader_key, _) = self.committee.leader(view as usize);
         leader_key
+    }
+
+    fn advance_view(&mut self) {
+        error!("(r={}, v={}) Advancing view", self.round, self.view);
+        self.view = self.view + 1;
+        self.header_aggregator = Box::new(ConsensusVotesAggregator::new());
+        self.complaint_aggregator = Box::new(ConsensusComplaintsAggregator::new());
+        self.last_view_round = self.round;
+    }
+
+    fn commit_view(&mut self) {
+        error!("(r={}, v={}) COMMIT", self.round, self.view);
+
+        // If we already ordered this leader, do nothing
+        if self.round <= self.state.last_committed_round {
+            return;
+        }
+
+        let leader_key = self.elect_leader(self.view);
+        let leader_cert: Option<&(Hash, Certificate)> = self.state.dag
+            .get(&self.round)
+            .map(|x| x.get(&leader_key))
+            .expect("No leader certificate found for previous view");
     }
 }

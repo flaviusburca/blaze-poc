@@ -1,40 +1,31 @@
-use {itertools::rev, tokio::signal::ctrl_c};
-// Copyright(C) Mundis
-use {
-    itertools::Itertools,
-    log::{debug, error},
-    mundis_model::{
-        certificate::Certificate,
-        committee::Committee,
-        hash::{Hash, Hashable},
-        pubkey::Pubkey,
-        Round, View,
-    },
-    std::{
-        cmp::max,
-        collections::{HashMap, HashSet},
-    },
-    tokio::sync::mpsc::{Receiver, Sender},
-};
+use std::cmp::max;
+use std::collections::HashMap;
+use itertools::Itertools;
+use log::debug;
+use mundis_model::certificate::Certificate;
+use mundis_model::hash::{Hash, Hashable};
+use mundis_model::pubkey::Pubkey;
+use mundis_model::{Round, View};
+
 /// The representation of the DAG in memory.
 type Dag = HashMap<Round, HashMap<Pubkey, (Hash, Certificate)>>;
 
 /// The state that needs to be persisted for crash-recovery.
-struct State {
+pub struct State {
     /// The last committed view.
-    last_committed_round: Round,
+    pub last_committed_round: Round,
     // Keeps the last committed round for each authority. This map is used to clean up the dag and
     // ensure we don't commit twice the same certificate.
-    last_committed: HashMap<Pubkey, Round>,
+    pub last_committed: HashMap<Pubkey, Round>,
     /// Keeps the latest committed certificate (and its parents) for every authority. Anything older
     /// must be regularly cleaned up through the function `update`.
-    dag: Dag,
+    pub dag: Dag,
     /// Keeps a mapping between views and rounds
-    rounds: HashMap<Round, View>,
+    pub rounds: HashMap<Round, View>,
 }
 
 impl State {
-    fn new(genesis: Vec<Certificate>) -> Self {
+    pub fn new(genesis: Vec<Certificate>) -> Self {
         let genesis = genesis
             .into_iter()
             .map(|x| (x.origin(), (x.hash(), x)))
@@ -46,6 +37,13 @@ impl State {
             dag: [(0, genesis)].iter().cloned().collect(),
             rounds: HashMap::new(),
         }
+    }
+
+    pub fn add_certificate(&mut self, certificate: Certificate) {
+        self.dag
+            .entry(certificate.round())
+            .or_insert_with(HashMap::new)
+            .insert(certificate.origin(), (certificate.hash(), certificate));
     }
 
     /// Update and clean up internal state base on committed certificates.
@@ -94,69 +92,5 @@ impl State {
         }
 
         debug!("{}", msg);
-    }
-}
-
-pub struct Consensus {
-    /// The committee information.
-    committee: Committee,
-    /// The depth of the garbage collector.
-    gc_depth: Round,
-
-    /// Receives new certificates from the primary. The primary should send us new certificates only if it already sent us its whole history.
-    rx_primary: Receiver<Certificate>,
-    /// Receives the leader's certificate for commit
-    rx_commit_view: Receiver<Certificate>,
-    /// Outputs the sequence of ordered certificates to the primary (for cleanup and feedback).
-    tx_primary: Sender<Certificate>,
-    /// Outputs the sequence of ordered certificates to the application layer.
-    tx_output: Sender<Certificate>,
-
-    /// The genesis certificates.
-    genesis: Vec<Certificate>,
-}
-
-impl Consensus {
-    pub fn spawn(
-        committee: Committee,
-        gc_depth: Round,
-        rx_primary: Receiver<Certificate>,
-        rx_commit_view: Receiver<Certificate>,
-        tx_primary: Sender<Certificate>,
-        tx_output: Sender<Certificate>,
-    ) {
-        tokio::spawn(async move {
-            Self {
-                committee: committee.clone(),
-                gc_depth,
-                rx_primary,
-                rx_commit_view,
-                tx_primary,
-                tx_output,
-                genesis: Certificate::genesis(&committee),
-            }
-            .run()
-            .await;
-        });
-    }
-
-    async fn run(&mut self) {
-        // The consensus state (everything else is immutable).
-        let mut state = State::new(self.genesis.clone());
-        // state.dump(Some("\nGENESIS ".to_string()));
-
-        loop {
-            tokio::select! {
-                Some(certificate) = self.rx_primary.recv() => {
-                    let round = certificate.round();
-
-                    // Add the new certificate to the local storage.
-                    state.dag
-                        .entry(round)
-                        .or_insert_with(HashMap::new)
-                        .insert(certificate.origin(), (certificate.hash(), certificate));
-                }
-            }
-        }
     }
 }
