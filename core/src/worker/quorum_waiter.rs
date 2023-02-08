@@ -1,4 +1,3 @@
-// Copyright(C) Facebook, Inc. and its affiliates.
 use {
     crate::worker::processor::SerializedBatchMessage,
     futures::{stream::FuturesUnordered, StreamExt as _},

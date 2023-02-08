@@ -1,4 +1,3 @@
-// Copyright(C) Facebook, Inc. and its affiliates.
 use log::info;
 use {
     crate::worker::SerializedBatchDigestMessage, bytes::Bytes,
@@ -6,20 +5,20 @@ use {
 };
 
 // Send batches' digests to the primary.
-pub struct PrimaryConnector {
-    /// The primary network address.
-    primary_address: SocketAddr,
+pub struct MasterConnector {
+    /// The network address of the master.
+    master_address: SocketAddr,
     /// Input channel to receive the digests to send to the primary.
     rx_digest: Receiver<SerializedBatchDigestMessage>,
     /// A network sender to send the baches' digests to the primary.
     network: SimpleSender,
 }
 
-impl PrimaryConnector {
-    pub fn spawn(primary_address: SocketAddr, rx_digest: Receiver<SerializedBatchDigestMessage>) {
+impl MasterConnector {
+    pub fn spawn(master_address: SocketAddr, rx_digest: Receiver<SerializedBatchDigestMessage>) {
         tokio::spawn(async move {
             Self {
-                primary_address,
+                master_address: master_address,
                 rx_digest,
                 network: SimpleSender::new(),
             }
@@ -33,7 +32,7 @@ impl PrimaryConnector {
             // Send the digest through the network.
             info!("SIMPLE SEND SerializedBatchDigestMessage");
             self.network
-                .send(self.primary_address, Bytes::from(digest))
+                .send(self.master_address, Bytes::from(digest))
                 .await;
         }
     }

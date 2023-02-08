@@ -1,11 +1,10 @@
-// Copyright(C) Facebook, Inc. and its affiliates.
 use {
     crate::{
         master::PrimaryWorkerMessage,
         worker::{
             batch_maker::{Batch, BatchMaker, Transaction},
             worker_helper::{ExecutorHelper, WorkerHelper},
-            primary_connector::PrimaryConnector,
+            primary_connector::MasterConnector,
             processor::{SerializedBatchMessage, WorkerProcessor},
             quorum_waiter::{QuorumWaiter, QuorumWaiterMessage},
             worker_synchronizer::WorkerSynchronizer,
@@ -77,7 +76,7 @@ impl WorkerNode {
         worker.handle_workers_messages(tx_primary);
 
         // The `PrimaryConnector` allows the worker to send messages to its primary.
-        PrimaryConnector::spawn(
+        MasterConnector::spawn(
             worker
                 .committee
                 .primary_address(&worker.authority)

@@ -1,4 +1,3 @@
-// Copyright(C) Facebook, Inc. and its affiliates.
 use {
     std::collections::{HashMap, VecDeque},
     tokio::sync::{

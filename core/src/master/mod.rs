@@ -6,7 +6,7 @@ use {
         payload_receiver::PayloadReceiver,
         master_core::PrimaryCore,
         master_helper::PrimaryHelper,
-        master_synchronizer::PrimarySynchronizer,
+        master_synchronizer::MasterSynchronizer,
         proposer::Proposer,
     },
     async_trait::async_trait,
@@ -185,7 +185,7 @@ impl MasterNode {
         );
 
         // The `Synchronizer` provides auxiliary methods helping to `Core` to sync.
-        let synchronizer = PrimarySynchronizer::new(
+        let synchronizer = MasterSynchronizer::new(
             config.identity.pubkey(),
             &config.initial_committee,
             store.clone(),

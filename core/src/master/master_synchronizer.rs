@@ -1,4 +1,3 @@
-// Copyright(C) Facebook, Inc. and its affiliates.
 use {
     crate::master::header_waiter::HeaderWaiterMessage,
     futures::TryFutureExt,
@@ -17,9 +16,9 @@ use {
     tokio::sync::mpsc::Sender,
 };
 
-/// The `PrimarySynchronizer` checks if we have all batches and parents referenced by a header. If we don't, it sends
+/// The `MasterSynchronizer` checks if we have all batches and parents referenced by a header. If we don't, it sends
 /// a command to the `Waiter` to request the missing data.
-pub struct PrimarySynchronizer {
+pub struct MasterSynchronizer {
     /// The public key of this primary.
     authority: Pubkey,
     /// The persistent storage.
@@ -32,7 +31,7 @@ pub struct PrimarySynchronizer {
     genesis: Vec<(Hash, Certificate)>,
 }
 
-impl PrimarySynchronizer {
+impl MasterSynchronizer {
     pub fn new(
         authority: Pubkey,
         committee: &Committee,
@@ -127,13 +126,16 @@ impl PrimarySynchronizer {
 
     /// Check whether we have all the ancestors of the certificate. If we don't, send the certificate to
     /// the `CertificateWaiter` which will trigger re-processing once we have all the missing data.
-    pub async fn deliver_certificate(&mut self, certificate: &Certificate) -> DagResult<bool> {
+    pub async fn fetch_ancestors(&mut self, certificate: &Certificate) -> DagResult<bool> {
         for digest in &certificate.header.parents {
             if self.genesis.iter().any(|(x, _)| x == digest) {
                 continue;
             }
 
-            if self.store.read(digest.to_vec()).map_err(|e| StoreError(e.to_string())).await?.is_none() {
+            if self.store.read(digest.to_vec())
+                .map_err(|e| StoreError(e.to_string())).await?
+                .is_none()
+            {
                 self.tx_certificate_waiter
                     .send(certificate.clone())
                     .await

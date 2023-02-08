@@ -1,4 +1,3 @@
-// Copyright(C) Facebook, Inc. and its affiliates.
 use {
     crate::master::{PrimaryMessage, PrimaryWorkerMessage},
     bytes::Bytes,

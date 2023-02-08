@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright(C) Facebook, Inc. and its affiliates.
-// Copyright(C) Metaverse Labs, Ltd. and its affiliates.
 use std::pin::Pin;
 use futures::future::err;
 use futures::TryFuture;
@@ -13,7 +10,7 @@ use {
 use {
     crate::master::{
         aggregators::{CertificatesAggregator, VotesAggregator},
-        master_synchronizer::PrimarySynchronizer,
+        master_synchronizer::MasterSynchronizer,
         PrimaryMessage,
     },
     async_recursion::async_recursion,
@@ -55,7 +52,7 @@ pub struct PrimaryCore {
     /// The persistent storage.
     store: Store,
     /// Handles synchronization with other nodes and our workers.
-    synchronizer: PrimarySynchronizer,
+    synchronizer: MasterSynchronizer,
     /// The current consensus round (used for cleanup).
     consensus_round: Arc<AtomicU64>,
     /// The depth of the garbage collector.
@@ -107,7 +104,7 @@ impl PrimaryCore {
         authority: Keypair,
         committee: Committee,
         store: Store,
-        synchronizer: PrimarySynchronizer,
+        synchronizer: MasterSynchronizer,
         consensus_round: Arc<AtomicU64>,
         gc_depth: Round,
         rx_primaries: Receiver<PrimaryMessage>,
@@ -259,7 +256,7 @@ impl PrimaryCore {
 
         // Ensure we have all the ancestors of this certificate yet. If we don't, the synchronizer will gather
         // them and trigger re-processing of this certificate.
-        if !self.synchronizer.deliver_certificate(&certificate).await? {
+        if !self.synchronizer.fetch_ancestors(&certificate).await? {
             debug!(
                 "Processing of {:?} suspended: missing ancestors",
                 certificate

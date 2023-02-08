@@ -1,4 +1,3 @@
-// Copyright(C) Facebook, Inc. and its affiliates.
 use {
     futures::{future::try_join_all, stream::FuturesUnordered, StreamExt as _},
     log::error,
@@ -12,7 +11,7 @@ use {
 pub struct CertificateWaiter {
     /// The persistent storage.
     store: Store,
-    /// Receives sync commands from the `Synchronizer`.
+    /// Receives sync commands from the `MasterSynchronizer`.
     rx_synchronizer: Receiver<Certificate>,
     /// Loops back to the core certificates for which we got all parents.
     tx_core: Sender<Certificate>,

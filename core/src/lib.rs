@@ -1,4 +1,3 @@
-// Copyright(C) Mundis.
 #![allow(unused)]
 
 extern crate core;

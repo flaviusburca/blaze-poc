@@ -1,6 +1,5 @@
 use std::cmp::Ordering;
 use log::error;
-// Copyright(C) Mundis
 use {
     log::debug,
     mundis_model::{
