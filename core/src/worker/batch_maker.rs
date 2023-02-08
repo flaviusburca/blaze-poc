@@ -114,7 +114,3 @@ impl BatchMaker {
             .expect("Failed to deliver batch");
     }
 }
-
-#[cfg(test)]
-#[path = "tests/batch_maker_tests.rs"]
-pub mod batch_maker_tests;

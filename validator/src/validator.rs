@@ -4,8 +4,8 @@ use tokio::sync::mpsc::channel;
 
 use mundis_core::consensus::Consensus;
 use mundis_core::executor::Executor;
-use mundis_core::primary::Primary;
-use mundis_core::worker::Worker;
+use mundis_core::master::MasterNode;
+use mundis_core::worker::WorkerNode;
 use mundis_ledger::Store;
 use mundis_model::certificate::Certificate;
 use mundis_model::config::ValidatorConfig;
@@ -29,7 +29,7 @@ impl Validator {
         let primary_store =
             Store::new(&primary_store_path).context("Could not create the primary ledger store")?;
 
-        Primary::spawn(&config, primary_store, tx_new_certificates, rx_feedback, tx_commit_view)?;
+        MasterNode::spawn(&config, primary_store, tx_new_certificates, rx_feedback, tx_commit_view)?;
 
         Consensus::spawn(
             config.initial_committee.clone(),
@@ -59,7 +59,7 @@ impl Validator {
                 i
             ))?;
 
-            Worker::spawn(
+            WorkerNode::spawn(
                 config.identity.pubkey(),
                 i as WorkerId,
                 config.initial_committee.clone(),

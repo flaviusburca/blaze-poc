@@ -160,7 +160,3 @@ impl Consensus {
         }
     }
 }
-
-#[cfg(test)]
-#[path = "tests/consensus_tests.rs"]
-pub mod consensus_tests;

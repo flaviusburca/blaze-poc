@@ -1,12 +1,12 @@
 use {
-    crate::primary::{
+    crate::master::{
         certificate_waiter::CertificateWaiter,
         garbage_collector::GarbageCollector,
-        header_waiter::{HeaderWaiter, WaiterMessage},
+        header_waiter::{HeaderWaiter, HeaderWaiterMessage},
         payload_receiver::PayloadReceiver,
-        primary_core::PrimaryCore,
-        primary_helper::PrimaryHelper,
-        primary_synchronizer::PrimarySynchronizer,
+        master_core::PrimaryCore,
+        master_helper::PrimaryHelper,
+        master_synchronizer::PrimarySynchronizer,
         proposer::Proposer,
     },
     async_trait::async_trait,
@@ -38,9 +38,9 @@ mod certificate_waiter;
 mod garbage_collector;
 mod header_waiter;
 mod payload_receiver;
-mod primary_core;
-mod primary_helper;
-mod primary_synchronizer;
+mod master_core;
+mod master_helper;
+mod master_synchronizer;
 mod proposer;
 
 /// The default channel capacity for each channel of the primary.
@@ -124,9 +124,9 @@ impl MessageHandler for PrimaryReceiverHandler {
     }
 }
 
-pub struct Primary;
+pub struct MasterNode;
 
-impl Primary {
+impl MasterNode {
     pub fn spawn(
         config: &ValidatorConfig,
         store: Store,
@@ -138,7 +138,7 @@ impl Primary {
 
         let (tx_primary_messages, rx_primary_messages) = channel::<PrimaryMessage>(CHANNEL_CAPACITY);
         let (tx_cert_requests, rx_cert_requests) = channel::<(Vec<Hash>, Pubkey)>(CHANNEL_CAPACITY);
-        let (tx_sync_headers, rx_sync_headers) = channel::<WaiterMessage>(CHANNEL_CAPACITY);
+        let (tx_sync_headers, rx_sync_headers) = channel::<HeaderWaiterMessage>(CHANNEL_CAPACITY);
         let (tx_sync_certificates, rx_sync_certificates) = channel::<Certificate>(CHANNEL_CAPACITY);
         let (tx_our_digests, rx_our_digests) = channel::<(Hash, WorkerId)>(CHANNEL_CAPACITY);
         let (tx_others_digests, rx_others_digests) = channel::<(Hash, WorkerId)>(CHANNEL_CAPACITY);
@@ -299,7 +299,3 @@ impl MessageHandler for WorkerReceiverHandler {
         Ok(())
     }
 }
-
-#[cfg(test)]
-#[path = "tests/common.rs"]
-mod common;

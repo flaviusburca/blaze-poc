@@ -1,6 +1,6 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use {
-    crate::{primary::PrimaryWorkerMessage, worker::WorkerMessage},
+    crate::{master::PrimaryWorkerMessage, worker::WorkerMessage},
     bytes::Bytes,
     futures::{stream::FuturesUnordered, StreamExt as _},
     log::{debug, error},

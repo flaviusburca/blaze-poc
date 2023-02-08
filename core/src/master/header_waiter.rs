@@ -1,6 +1,6 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use {
-    crate::primary::{PrimaryMessage, PrimaryWorkerMessage},
+    crate::master::{PrimaryMessage, PrimaryWorkerMessage},
     bytes::Bytes,
     futures::{
         future::try_join_all,
@@ -35,9 +35,9 @@ use {
 /// new sync requests if we didn't.
 const TIMER_RESOLUTION: u64 = 1_000;
 
-/// The commands that can be sent to the `Waiter`.
+/// The commands that can be sent to the `HeaderWaiter`.
 #[derive(Debug)]
-pub enum WaiterMessage {
+pub enum HeaderWaiterMessage {
     SyncBatches(HashMap<Hash, WorkerId>, Header),
     SyncParents(Vec<Hash>, Header),
 }
@@ -60,7 +60,7 @@ pub struct HeaderWaiter {
     sync_retry_nodes: usize,
 
     /// Receives sync commands from the `Synchronizer`.
-    rx_synchronizer: Receiver<WaiterMessage>,
+    rx_synchronizer: Receiver<HeaderWaiterMessage>,
     /// Loops back to the core headers for which we got all parents and batches.
     tx_core: Sender<Header>,
 
@@ -86,7 +86,7 @@ impl HeaderWaiter {
         gc_depth: Round,
         sync_retry_delay: u64,
         sync_retry_nodes: usize,
-        rx_synchronizer: Receiver<WaiterMessage>,
+        rx_synchronizer: Receiver<HeaderWaiterMessage>,
         tx_core: Sender<Header>,
     ) {
         tokio::spawn(async move {
@@ -112,7 +112,7 @@ impl HeaderWaiter {
 
     /// Helper function. It waits for particular data to become available in the storage
     /// and then delivers the specified header.
-    async fn waiter(
+    async fn wait_for_data(
         mut missing: Vec<(Vec<u8>, Store)>,
         deliver: Header,
         mut handler: Receiver<()>,
@@ -140,7 +140,7 @@ impl HeaderWaiter {
             tokio::select! {
                 Some(message) = self.rx_synchronizer.recv() => {
                     match message {
-                        WaiterMessage::SyncBatches(missing, header) => {
+                        HeaderWaiterMessage::SyncBatches(missing, header) => {
                             info!("Synching the payload of {}", header);
                             let header_id = header.id.clone();
                             let round = header.round;
@@ -162,7 +162,7 @@ impl HeaderWaiter {
                                 .collect();
                             let (tx_cancel, rx_cancel) = channel(1);
                             self.pending.insert(header_id, (round, tx_cancel));
-                            let fut = Self::waiter(wait_for, header, rx_cancel);
+                            let fut = Self::wait_for_data(wait_for, header, rx_cancel);
                             waiting.push(fut);
 
                             // Ensure we didn't already send a sync request for these parents.
@@ -187,7 +187,7 @@ impl HeaderWaiter {
                             }
                         },
 
-                        WaiterMessage::SyncParents(missing, header) => {
+                        HeaderWaiterMessage::SyncParents(missing, header) => {
                             info!("Synching the parents of {}", header);
                             let header_id = header.id.clone();
                             let round = header.round;
@@ -207,7 +207,7 @@ impl HeaderWaiter {
                                 .collect();
                             let (tx_cancel, rx_cancel) = channel(1);
                             self.pending.insert(header_id, (round, tx_cancel));
-                            let fut = Self::waiter(wait_for, header, rx_cancel);
+                            let fut = Self::wait_for_data(wait_for, header, rx_cancel);
                             waiting.push(fut);
 
                             // Ensure we didn't already sent a sync request for these parents.

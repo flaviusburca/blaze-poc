@@ -1,6 +1,6 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use {
-    crate::{primary::WorkerPrimaryMessage, worker::SerializedBatchDigestMessage},
+    crate::{master::WorkerPrimaryMessage, worker::SerializedBatchDigestMessage},
     mundis_ledger::Store,
     mundis_model::{hash::Hasher, WorkerId},
     tokio::sync::mpsc::{Receiver, Sender},

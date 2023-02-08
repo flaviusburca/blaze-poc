@@ -1,6 +1,6 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use {
-    crate::primary::header_waiter::WaiterMessage,
+    crate::master::header_waiter::HeaderWaiterMessage,
     futures::TryFutureExt,
     mundis_ledger::Store,
     mundis_model::{
@@ -17,7 +17,7 @@ use {
     tokio::sync::mpsc::Sender,
 };
 
-/// The `Synchronizer` checks if we have all batches and parents referenced by a header. If we don't, it sends
+/// The `PrimarySynchronizer` checks if we have all batches and parents referenced by a header. If we don't, it sends
 /// a command to the `Waiter` to request the missing data.
 pub struct PrimarySynchronizer {
     /// The public key of this primary.
@@ -25,7 +25,7 @@ pub struct PrimarySynchronizer {
     /// The persistent storage.
     store: Store,
     /// Send commands to the `HeaderWaiter`.
-    tx_header_waiter: Sender<WaiterMessage>,
+    tx_header_waiter: Sender<HeaderWaiterMessage>,
     /// Send commands to the `CertificateWaiter`.
     tx_certificate_waiter: Sender<Certificate>,
     /// The genesis and its digests.
@@ -37,7 +37,7 @@ impl PrimarySynchronizer {
         authority: Pubkey,
         committee: &Committee,
         store: Store,
-        tx_header_waiter: Sender<WaiterMessage>,
+        tx_header_waiter: Sender<HeaderWaiterMessage>,
         tx_certificate_waiter: Sender<Certificate>,
     ) -> Self {
         Self {
@@ -55,7 +55,7 @@ impl PrimarySynchronizer {
     /// Returns `true` if we have all transactions of the payload. If we don't, we return false,
     /// synchronize with other nodes (through our workers), and re-schedule processing of the
     /// header for when we will have its complete payload.
-    pub async fn missing_payload(&mut self, header: &Header) -> DagResult<bool> {
+    pub async fn payload_complete(&mut self, header: &Header) -> DagResult<bool> {
         // We don't store the payload of our own workers.
         if header.author == self.authority {
             return Ok(false);
@@ -85,7 +85,7 @@ impl PrimarySynchronizer {
         }
 
         self.tx_header_waiter
-            .send(WaiterMessage::SyncBatches(missing, header.clone()))
+            .send(HeaderWaiterMessage::SyncBatches(missing, header.clone()))
             .await
             .expect("Failed to send sync batch request");
         Ok(true)
@@ -119,7 +119,7 @@ impl PrimarySynchronizer {
         }
 
         self.tx_header_waiter
-            .send(WaiterMessage::SyncParents(missing, header.clone()))
+            .send(HeaderWaiterMessage::SyncParents(missing, header.clone()))
             .await
             .expect("Failed to send sync parents request");
         Ok(Vec::new())

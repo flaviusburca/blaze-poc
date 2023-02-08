@@ -1,7 +1,7 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use {
     crate::{
-        primary::PrimaryWorkerMessage,
+        master::PrimaryWorkerMessage,
         worker::{
             batch_maker::{Batch, BatchMaker, Transaction},
             worker_helper::{ExecutorHelper, WorkerHelper},
@@ -44,7 +44,7 @@ pub enum WorkerMessage {
     ExecutorRequest(Vec<Hash>, /* origin */ Pubkey),
 }
 
-pub struct Worker {
+pub struct WorkerNode {
     /// The public key of this authority.
     authority: Pubkey,
     /// The id of this worker.
@@ -55,7 +55,7 @@ pub struct Worker {
     store: Store,
 }
 
-impl Worker {
+impl WorkerNode {
     pub fn spawn(
         authority: Pubkey,
         id: WorkerId,

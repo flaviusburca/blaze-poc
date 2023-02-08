@@ -1,7 +1,7 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use log::info;
 use {
-    crate::primary::PrimaryWorkerMessage,
+    crate::master::PrimaryWorkerMessage,
     bytes::Bytes,
     mundis_model::{certificate::Certificate, committee::Committee, pubkey::Pubkey},
     mundis_network::simple_sender::SimpleSender,

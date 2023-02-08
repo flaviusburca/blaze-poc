@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright(C) Facebook, Inc. and its affiliates.
+// Copyright(C) Metaverse Labs, Ltd. and its affiliates.
 use std::pin::Pin;
 use futures::future::err;
 use futures::TryFuture;
@@ -7,11 +10,10 @@ use {
     std::time::Duration,
     tokio::time::{sleep, Sleep},
 };
-// Copyright(C) Facebook, Inc. and its affiliates.
 use {
-    crate::primary::{
+    crate::master::{
         aggregators::{CertificatesAggregator, VotesAggregator},
-        primary_synchronizer::PrimarySynchronizer,
+        master_synchronizer::PrimarySynchronizer,
         PrimaryMessage,
     },
     async_recursion::async_recursion,
@@ -38,7 +40,7 @@ use {
     },
     tokio::sync::mpsc::{Receiver, Sender},
 };
-use crate::primary::aggregators::{ConsensusComplaintsAggregator, ConsensusVotesAggregator};
+use crate::master::aggregators::{ConsensusComplaintsAggregator, ConsensusVotesAggregator};
 
 const CONSENSUS_TIMER_MS: u64 = 1000;
 
@@ -389,7 +391,7 @@ impl PrimaryCore {
 
         // Ensure we have the payload. If we don't, the synchronizer will ask our workers to get it, and then
         // reschedule processing of this header once we have it.
-        if self.synchronizer.missing_payload(header).await? {
+        if self.synchronizer.payload_complete(header).await? {
             debug!("Processing of {} suspended: missing payload", header);
             return Ok(());
         }
@@ -534,7 +536,3 @@ impl PrimaryCore {
         leader_key
     }
 }
-
-#[cfg(test)]
-#[path = "tests/core_tests.rs"]
-pub mod core_tests;

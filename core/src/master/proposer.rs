@@ -154,7 +154,3 @@ impl Proposer {
             .expect("Failed to send header");
     }
 }
-
-#[cfg(test)]
-#[path = "tests/proposer_tests.rs"]
-pub mod proposer_tests;

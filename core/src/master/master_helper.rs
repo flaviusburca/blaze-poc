@@ -1,7 +1,7 @@
 // Copyright(C) Facebook, Inc. and its affiliates.
 use log::info;
 use {
-    crate::primary::PrimaryMessage,
+    crate::master::PrimaryMessage,
     bytes::Bytes,
     log::{error, warn},
     mundis_ledger::Store,
