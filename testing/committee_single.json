@@ -1,0 +1,19 @@
+{
+  "authorities": {
+    "4BFDbbzhg6eotPxYJaeiGJmbA57Zc83jH4v5Qt8Wj2cw": {
+      "stake": 100,
+      "name": "node1",
+      "primary": {
+        "primary_to_primary": "127.0.0.1:3015",
+        "worker_to_primary": "127.0.0.1:3016"
+      },
+      "workers": {
+
+      },
+      "executor": {
+        "worker_to_executor": "127.0.0.1:3029"
+      }
+    }
+  },
+  "epoch": 0
+}
