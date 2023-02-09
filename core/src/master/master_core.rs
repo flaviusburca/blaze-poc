@@ -290,14 +290,14 @@ impl MasterCore {
         // Add the new certificate to the local storage.
         let leader_key = self.elect_leader(self.view);
         if certificate.origin() == leader_key {
-            error!("(r={}, v={}) Adding leader certificate", self.round, self.view);
+            debug!("(r={}, v={}) Adding leader certificate", self.round, self.view);
         }
 
         self.state.add_certificate(certificate);
 
         // Timeout is in TIMEOUT_NUM_ROUNDS consecutive rounds
         if self.last_view_round > 0 && self.round > self.last_view_round + TIMEOUT_NUM_ROUNDS {
-            error!("(r={}, v={}) View timer expired", self.round, self.view);
+            debug!("(r={}, v={}) View timer expired", self.round, self.view);
             self.meta = -self.view;
         }
 
@@ -539,7 +539,7 @@ impl MasterCore {
         }
 
         let leader_key = self.elect_leader(self.view);
-        error!("(v={}) Leader is {}", self.view, leader_key);
+        debug!("(v={}) Leader is {}", self.view, leader_key);
 
         let (leader_cert_hash, leader_cert) = self.state.dag
             .get(&self.view)
@@ -557,6 +557,7 @@ impl MasterCore {
                 sequence.push(x);
             }
         }
+
 
         // Output the sequence in the right order.
         for certificate in sequence {

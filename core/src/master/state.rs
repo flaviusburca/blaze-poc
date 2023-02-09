@@ -102,12 +102,23 @@ impl State {
             return 1
         }
 
-        rounds.iter()
+        match rounds.iter()
             .filter(|&(k, v)| *v == view)
             .map(|(k, v)| k)
             .max()
-            .cloned()
-            .unwrap()
+            .cloned() {
+            Some(r) => r,
+            None => {
+                rounds.iter()
+                    .filter(|&(k, v)| *v == view - 1)
+                    .map(|(k, v)| k)
+                    .max()
+                    .cloned()
+                    .unwrap()
+            }
+        }
+
+
     }
 
     pub fn last_committed_round(&self) -> Round {
