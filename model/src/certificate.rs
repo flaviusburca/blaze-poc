@@ -64,7 +64,6 @@ pub enum DagError {
 #[derive(Clone, Serialize, Deserialize, Default)]
 pub struct Certificate {
     pub header: Header,
-    pub meta: View,
     pub votes: Vec<(Pubkey, Signature)>,
 }
 
@@ -78,7 +77,6 @@ impl Certificate {
                     author: *pubkey,
                     ..Header::default()
                 },
-                meta: 0,
                 ..Self::default()
             })
             .collect()
@@ -123,7 +121,7 @@ impl Certificate {
     }
 
     pub fn view(&self) -> View {
-        self.header.meta
+        self.header.meta.abs() as View
     }
 
     pub fn origin(&self) -> Pubkey {

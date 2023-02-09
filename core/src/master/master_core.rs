@@ -37,7 +37,8 @@ use {
     },
     tokio::sync::mpsc::{Receiver, Sender},
 };
-use crate::master::aggregators::{ConsensusComplaintsAggregator, ConsensusVotesAggregator};
+use mundis_model::Stake;
+use crate::master::aggregators::{BlazeComplaintsAggregator, BlazeVotesAggregator};
 use crate::master::state::State;
 
 const TIMEOUT_NUM_ROUNDS: u64 = 2;
@@ -95,9 +96,9 @@ pub struct MasterCore {
     meta: View,
     state: State,
     last_broadcasted_meta: View,
-    header_aggregator: Box<ConsensusVotesAggregator>,
-    complaint_aggregator: Box<ConsensusComplaintsAggregator>,
-    last_view_round: Round
+    blaze_votes: Box<BlazeVotesAggregator>,
+    blaze_complaints: Box<BlazeComplaintsAggregator>,
+    last_view_round: Round,
 }
 
 impl MasterCore {
@@ -143,12 +144,12 @@ impl MasterCore {
                 tx_gc,
                 round: 1,
                 view: 1,
-                meta: 0,
+                meta: 1,
                 last_broadcasted_meta: 0,
-                header_aggregator: Box::new(ConsensusVotesAggregator::new()),
-                complaint_aggregator: Box::new(ConsensusComplaintsAggregator::new()),
+                blaze_votes: Box::new(BlazeVotesAggregator::new()),
+                blaze_complaints: Box::new(BlazeComplaintsAggregator::new()),
                 last_view_round: 0,
-                state: State::new(genesis)
+                state: State::new(genesis, gc_depth),
             }
             .run()
             .await;
@@ -260,9 +261,9 @@ impl MasterCore {
         self.store.write(certificate.hash().to_vec(), bytes).await;
 
         let leader = self.elect_leader(self.view);
-        if certificate.meta > self.meta && certificate.origin() == leader {
-            debug!("(v={}, r={}) received certificate of leader {} with meta={}", self.view, self.round, leader, certificate.meta);
-            self.meta = certificate.meta;
+        if certificate.header.meta > self.meta && certificate.origin() == leader {
+            debug!("(v={}, r={}) received certificate of leader {} with meta={}", self.view, self.round, leader, certificate.header.meta);
+            self.meta = certificate.header.meta;
         }
 
         // Check if we have enough certificates to enter a new dag round and propose a header.
@@ -276,6 +277,7 @@ impl MasterCore {
 
             if round >= self.round {
                 self.round = round + 1;
+                self.state.rounds.insert(self.round, self.view);
             }
 
             // Send it to the `Proposer` to create a new header for the next round
@@ -293,9 +295,9 @@ impl MasterCore {
 
         self.state.add_certificate(certificate);
 
-        // Timeout is in 2 consecutive rounds
+        // Timeout is in TIMEOUT_NUM_ROUNDS consecutive rounds
         if self.last_view_round > 0 && self.round > self.last_view_round + TIMEOUT_NUM_ROUNDS {
-            debug!("(r={}, v={}) View timer expired", self.round, self.view);
+            error!("(r={}, v={}) View timer expired", self.round, self.view);
             self.meta = -self.view;
         }
 
@@ -314,9 +316,9 @@ impl MasterCore {
             let mut cert = certificate;
             let leader = self.elect_leader(self.view);
             if self.last_broadcasted_meta != self.view && self.authority.pubkey() == leader {
-                cert.meta = self.view;
+                cert.header.meta = self.view;
                 self.last_broadcasted_meta = self.view;
-                debug!("(v={}, r={}) Broadcast LEADER certificate with meta={}", self.view, self.round, cert.meta);
+                debug!("(v={}, r={}) Broadcast LEADER certificate with meta={}", self.view, self.round, cert.header.meta);
             }
 
             // Broadcast the certificate.
@@ -424,12 +426,12 @@ impl MasterCore {
             }
 
             if header.meta == self.view {
-                if self.header_aggregator.append(&self.committee, &header)?.is_some() {
-                    self.commit_view();
+                if self.blaze_votes.append(&self.committee, &header)?.is_some() {
+                    self.commit_view().await;
                     self.advance_view();
                 }
             } else if header.meta == -self.view {
-                if self.complaint_aggregator.append(&self.committee, &header)?.is_some() {
+                if self.blaze_complaints.append(&self.committee, &header)?.is_some() {
                     self.advance_view();
                 }
             }
@@ -443,9 +445,7 @@ impl MasterCore {
     }
 
     async fn process_own_header(&mut self, mut header: Header) -> DagResult<()> {
-        if self.meta != 0 {
-            header.meta = self.meta;
-        }
+        header.meta = self.meta;
 
         // Reset the votes aggregator.
         self.current_header = header.clone();
@@ -515,7 +515,7 @@ impl MasterCore {
         Ok(())
     }
 
-    fn elect_leader(&mut self, view: View) -> Pubkey {
+    fn elect_leader(&self, view: View) -> Pubkey {
         let (leader_key, _) = self.committee.leader(view as usize);
         leader_key
     }
@@ -523,23 +523,127 @@ impl MasterCore {
     fn advance_view(&mut self) {
         error!("(r={}, v={}) Advancing view", self.round, self.view);
         self.view = self.view + 1;
-        self.header_aggregator = Box::new(ConsensusVotesAggregator::new());
-        self.complaint_aggregator = Box::new(ConsensusComplaintsAggregator::new());
+        self.blaze_votes = Box::new(BlazeVotesAggregator::new());
+        self.blaze_complaints = Box::new(BlazeComplaintsAggregator::new());
         self.last_view_round = self.round;
     }
 
-    fn commit_view(&mut self) {
-        error!("(r={}, v={}) COMMIT", self.round, self.view);
+    async fn commit_view(&mut self) {
+        if self.view < 2 {
+            return;
+        }
 
         // If we already ordered this leader, do nothing
-        if self.round <= self.state.last_committed_round {
+        if self.view <= self.state.last_committed_view as View {
             return;
         }
 
         let leader_key = self.elect_leader(self.view);
-        let leader_cert: Option<&(Hash, Certificate)> = self.state.dag
-            .get(&self.round)
+        error!("(v={}) Leader is {}", self.view, leader_key);
+
+        let (leader_cert_hash, leader_cert) = self.state.dag
+            .get(&self.view)
             .map(|x| x.get(&leader_key))
+            .flatten()
             .expect("No leader certificate found for previous view");
+
+        let mut sequence: Vec<Certificate> = Vec::new();
+        for leader in self.order_leaders(leader_cert).iter().rev() {
+            // Starting from the oldest leader, flatten the sub-dag referenced by the leader.
+            for x in self.order_dag(leader) {
+                // Update and clean up internal state.
+                self.state.update(&x, self.gc_depth);
+                // Add the certificate to the sequence.
+                sequence.push(x);
+            }
+        }
+
+        // Output the sequence in the right order.
+        for certificate in sequence {
+            self.tx_gc
+                .send(certificate.clone())
+                .await
+                .expect("Failed to send certificate to the Garbage Collector");
+        }
+    }
+
+    fn order_leaders(&self, leader: &Certificate) -> Vec<Certificate> {
+        let mut to_commit = vec![leader.clone()];
+        let mut leader = leader;
+        for v in (self.state.last_committed_view + 1 ..= self.view - 1)
+            .rev()
+        {
+            // Get the certificate proposed by the previous leader.
+            let prev_leader_key = self.elect_leader(v);
+
+            let (_, prev_leader) = match self.state.dag.get(&v)
+                .map(|x| x.get(&prev_leader_key))
+                .flatten() {
+                Some(x) => x,
+                None => continue,
+            };
+
+            // Check whether there is a path between the last two leaders.
+            if self.linked(leader, prev_leader) {
+                to_commit.push(prev_leader.clone());
+                leader = prev_leader;
+            }
+        }
+        to_commit
+    }
+
+    fn linked(&self, leader: &Certificate, prev_leader: &Certificate) -> bool {
+        let mut parents = vec![leader];
+
+        for v in (prev_leader.view()..leader.view()).rev() {
+            parents = self.state.dag
+                .get(&v)
+                .expect("We should have the whole history by now")
+                .values()
+                .filter(|(hash, _)| parents.iter().any(|x| x.header.parents.contains(hash)))
+                .map(|(_, certificate)| certificate)
+                .collect();
+        }
+        parents.contains(&prev_leader)
+    }
+
+    fn order_dag(&self, leader: &Certificate) -> Vec<Certificate> {
+        let mut ordered = Vec::new();
+        let mut already_ordered = HashSet::new();
+
+        let mut buffer = vec![leader];
+        while let Some(x) = buffer.pop() {
+            ordered.push(x.clone());
+            for parent in &x.header.parents {
+                let (hash, certificate) = match self.state
+                    .dag
+                    .get(&(x.view() - 1))
+                    .map(|x| x.values().find(|(x, _)| x == parent))
+                    .flatten()
+                {
+                    Some(x) => x,
+                    None => continue, // We already ordered or GC up to here.
+                };
+
+                // We skip the certificate if we (1) already processed it or (2) we reached a round that we already
+                // committed for this authority.
+                let mut skip = already_ordered.contains(&hash);
+                skip |= self.state
+                    .last_committed
+                    .get(&certificate.origin())
+                    .map_or_else(|| false, |r| r == &certificate.view());
+                if !skip {
+                    buffer.push(certificate);
+                    already_ordered.insert(hash);
+                }
+            }
+        }
+
+        // Ensure we do not commit garbage collected certificates.
+        ordered.retain(|x| x.round() + self.gc_depth >= self.state.last_committed_round());
+
+        // Ordering the output by round is not really necessary but it makes the commit sequence prettier.
+        ordered.sort_by_key(|x| x.view());
+        ordered
     }
 }

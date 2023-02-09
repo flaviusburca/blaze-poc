@@ -14,13 +14,13 @@ use mundis_model::hash::Hash;
 use mundis_model::View;
 
 
-pub struct ConsensusComplaintsAggregator {
+pub struct BlazeComplaintsAggregator {
     weight: Stake,
     votes: Vec<Hash>,
     used: HashSet<Pubkey>,
 }
 
-impl ConsensusComplaintsAggregator {
+impl BlazeComplaintsAggregator {
     pub fn new() -> Self {
         Self {
             weight: 0,
@@ -51,13 +51,13 @@ impl ConsensusComplaintsAggregator {
     }
 }
 
-pub struct ConsensusVotesAggregator {
+pub struct BlazeVotesAggregator {
     weight: Stake,
     votes: Vec<Hash>,
     used: HashSet<Pubkey>,
 }
 
-impl ConsensusVotesAggregator {
+impl BlazeVotesAggregator {
     pub fn new() -> Self {
         Self {
             weight: 0,
@@ -125,7 +125,6 @@ impl VotesAggregator {
             return Ok(Some(Certificate {
                 header: header.clone(),
                 votes: self.votes.clone(),
-                meta: 0
             }));
         }
         Ok(None)
