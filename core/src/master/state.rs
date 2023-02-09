@@ -67,6 +67,9 @@ impl State {
                 !authorities.is_empty() && max_round + gc_depth >= last_committed_round
             });
         }
+
+        // keep the last 50 views
+        self.rounds.retain(|r, v| *v >= self.last_committed_view - 50);
     }
 
     #[allow(unused)]
@@ -98,7 +101,7 @@ impl State {
     }
 
     pub fn max_round_for_view(view: View, rounds: &HashMap<Round, View>) -> Round {
-        if view == 1 {
+        if view < 2 {
             return 1
         }
 
@@ -108,17 +111,8 @@ impl State {
             .max()
             .cloned() {
             Some(r) => r,
-            None => {
-                rounds.iter()
-                    .filter(|&(k, v)| *v == view - 1)
-                    .map(|(k, v)| k)
-                    .max()
-                    .cloned()
-                    .unwrap()
-            }
+            None => Self::max_round_for_view(view - 1, rounds)
         }
-
-
     }
 
     pub fn last_committed_round(&self) -> Round {
